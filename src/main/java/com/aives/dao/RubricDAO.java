@@ -9,7 +9,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Feature 1 - CRUD rubric (tiêu chí + thang điểm) của câu hỏi. */
 public class RubricDAO {
 
     public List<Rubric> findByQuestion(int questionId) throws SQLException {

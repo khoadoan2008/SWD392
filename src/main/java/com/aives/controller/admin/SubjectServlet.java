@@ -11,11 +11,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 7 - CRUD môn học.
- * GET  ?action=list|create|edit&id=
- * POST action=save|delete
- */
+
 @WebServlet("/admin/subjects")
 public class SubjectServlet extends HttpServlet {
 
@@ -95,7 +91,7 @@ public class SubjectServlet extends HttpServlet {
         }
     }
 
-    /** Danh sách môn học; s != null thì mở panel thêm/sửa bên phải. */
+ 
     private void render(HttpServletRequest req, HttpServletResponse resp, Subject s)
             throws SQLException, ServletException, IOException {
         req.setAttribute("s", s);

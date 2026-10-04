@@ -15,10 +15,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 1 - CRUD rubric, thao tác ngay trong trang sửa câu hỏi.
- * POST action=save (id=0 -> thêm mới) | delete ; luôn kèm questionId
- */
+
 @WebServlet("/lecturer/rubrics")
 public class RubricServlet extends HttpServlet {
 

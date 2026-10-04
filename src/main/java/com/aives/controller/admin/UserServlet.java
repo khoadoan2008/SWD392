@@ -17,11 +17,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 7 - CRUD tài khoản.
- * GET  ?action=list|create|edit&id=
- * POST action=save|delete
- */
+
 @WebServlet("/admin/users")
 public class UserServlet extends HttpServlet {
 
@@ -91,7 +87,6 @@ public class UserServlet extends HttpServlet {
             }
         }
 
-        // ---- Validate ----
         String error = null;
         User current = WebUtil.currentUser(req);
         if (isNew && WebUtil.isBlank(u.getUsername())) {
@@ -147,7 +142,6 @@ public class UserServlet extends HttpServlet {
                 userDAO.delete(id);
                 WebUtil.flash(req, "success", "Đã xoá tài khoản.");
             } catch (SQLException e) {
-                // FK: tài khoản đã tạo câu hỏi / đã có lượt thi
                 WebUtil.flash(req, "error", "Tài khoản đã có dữ liệu liên quan, hãy khoá (bỏ tick Hoạt động) thay vì xoá.");
             }
         }
@@ -159,7 +153,7 @@ public class UserServlet extends HttpServlet {
         req.setAttribute("u", u);
         req.setAttribute("subjects", subjectDAO.findAll());
         req.setAttribute("assignedSubjectIds", subjectIds);
-        loadList(req); // form hiển thị dạng panel bên phải danh sách
+        loadList(req); 
         req.getRequestDispatcher(LIST_VIEW).forward(req, resp);
     }
 
