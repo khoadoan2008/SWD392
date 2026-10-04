@@ -1,0 +1,30 @@
+<%-- Transcript dạng hội thoại của ${se} (chỉ các lượt đã trả lời). Dùng chung cho giảng viên và sinh viên. --%>
+<div class="chat">
+<c:forEach items="${se.turns}" var="t">
+    <c:if test="${not empty t.answeredAt}">
+        <div class="msg ai ${t.followUp ? 'followup' : ''}">
+            <span class="who">AI</span>
+            <div>
+                <div class="bubble">
+                    <c:choose>
+                        <c:when test="${t.followUp}"><span class="badge FOLLOW_UP" style="margin-bottom:4px">Hỏi xoáy ${t.followupIndex}</span><br></c:when>
+                        <c:otherwise><b>Câu ${t.mainIndex}.</b> </c:otherwise>
+                    </c:choose>
+                    <c:out value="${t.questionText}"/>
+                </div>
+            </div>
+        </div>
+        <div class="msg student">
+            <span class="who">SV</span>
+            <div style="text-align:right">
+                <div class="bubble" style="text-align:left"><c:out value="${empty t.transcript ? '(Không có câu trả lời)' : t.transcript}"/></div>
+                <div class="meta"><svg class="icon" style="width:12px;height:12px;vertical-align:-2px"><use href="${ico}#i-clock"/></svg>
+                    ${t.responseTimeSec}s · <fmt:formatDate value="${t.answeredAt}" pattern="HH:mm:ss"/></div>
+            </div>
+        </div>
+    </c:if>
+</c:forEach>
+<c:if test="${se.answeredCount == 0}">
+    <div class="empty"><svg class="icon"><use href="${ico}#i-message"/></svg><div>Chưa có câu trả lời nào.</div></div>
+</c:if>
+</div>
