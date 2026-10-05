@@ -18,7 +18,10 @@ Thời gian test hết: khoảng **30–40 phút**. Đánh dấu ✅ / ❌ vào 
 
 ### 0.2. Tạo database + dữ liệu demo
 
-Mở **PowerShell** tại thư mục `D:\AIVES\aives_system` rồi chạy lần lượt (mỗi lệnh sẽ hỏi mật khẩu `postgres`):
+**Cách nhanh nhất:** bấm đúp `database\setup-db.bat` → nhập mật khẩu user `postgres` → gõ `y`. Script tự tìm PostgreSQL,
+tạo database `aives` và nạp dữ liệu demo. (Chạy lại bất cứ lúc nào để đưa dữ liệu về ban đầu — nhớ tắt Tomcat trước.)
+
+Cách chạy tay: mở **PowerShell** tại thư mục `D:\AIVES\aives_system` rồi chạy lần lượt (mỗi lệnh sẽ hỏi mật khẩu `postgres`):
 
 ```powershell
 & "C:\Program Files\PostgreSQL\18\bin\createdb.exe" -U postgres -E UTF8 -T template0 aives

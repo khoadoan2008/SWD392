@@ -8,7 +8,6 @@ import java.util.Base64;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-/** Băm mật khẩu bằng PBKDF2 (có sẵn trong JDK). Định dạng lưu: iterations:salt:hash */
 public final class PasswordUtil {
 
     private static final int ITERATIONS = 65536;

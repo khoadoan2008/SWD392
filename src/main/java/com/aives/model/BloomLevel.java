@@ -1,6 +1,5 @@
 package com.aives.model;
 
-/** Thang nhận thức Bloom. */
 public enum BloomLevel {
     REMEMBER("Nhớ"),
     UNDERSTAND("Hiểu"),

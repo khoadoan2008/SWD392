@@ -12,7 +12,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Feature 3 - Lượt phỏng vấn AI và từng lượt hỏi-đáp. */
 public class InterviewDAO {
 
     private static final String SESSION_SELECT =
@@ -26,7 +25,6 @@ public class InterviewDAO {
             "SELECT id, session_id, question_id, parent_turn_id, turn_type, main_index, followup_index,"
             + " question_text, transcript, response_time_sec, asked_at, answered_at FROM interview_turns";
 
-    /** Tạo lượt thi + các câu hỏi chính (MAIN) trong một transaction. */
     public int createSession(InterviewSession se, List<Question> mainQuestions) throws SQLException {
         try (Connection c = DBContext.getConnection()) {
             c.setAutoCommit(false);
@@ -89,10 +87,7 @@ public class InterviewDAO {
         }
     }
 
-    /**
-     * @param studentId  khác null: chỉ lượt thi của sinh viên đó
-     * @param lecturerId khác null: chỉ các môn giảng viên được phân công
-     */
+   
     public List<InterviewSession> search(Integer studentId, Integer lecturerId, Integer subjectId) throws SQLException {
         StringBuilder sql = new StringBuilder(SESSION_SELECT).append(" WHERE 1=1");
         List<Integer> params = new ArrayList<>();
@@ -138,7 +133,6 @@ public class InterviewDAO {
         return list;
     }
 
-    /** Lượt hỏi kế tiếp chưa được trả lời (null = đã hết câu hỏi). */
     public InterviewTurn findCurrentTurn(int sessionId) throws SQLException {
         try (Connection c = DBContext.getConnection();
              PreparedStatement ps = c.prepareStatement(TURN_SELECT
@@ -160,7 +154,6 @@ public class InterviewDAO {
         }
     }
 
-    /** Ghi nhận thời điểm câu hỏi được đọc lần đầu (để tính thời gian trả lời). */
     public void markAsked(int turnId) throws SQLException {
         try (Connection c = DBContext.getConnection();
              PreparedStatement ps = c.prepareStatement(
@@ -170,7 +163,6 @@ public class InterviewDAO {
         }
     }
 
-    /** Lưu transcript; thời gian trả lời tính phía server từ asked_at. */
     public void saveAnswer(int turnId, String transcript) throws SQLException {
         try (Connection c = DBContext.getConnection();
              PreparedStatement ps = c.prepareStatement(
@@ -212,7 +204,6 @@ public class InterviewDAO {
         }
     }
 
-    /** Các turn bị xoá theo (ON DELETE CASCADE). */
     public void deleteSession(int sessionId) throws SQLException {
         try (Connection c = DBContext.getConnection();
              PreparedStatement ps = c.prepareStatement("DELETE FROM interview_sessions WHERE id = ?")) {

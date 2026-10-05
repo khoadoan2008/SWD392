@@ -15,13 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
-/**
- * Feature 7 - Bắt buộc đăng nhập và phân quyền theo tiền tố URL:
- * /admin/*    -> ADMIN
- * /lecturer/* -> LECTURER, ADMIN
- * /student/*  -> STUDENT
- * Không trả lỗi 403: chưa đăng nhập / không đủ quyền đều được đưa về trang đăng nhập kèm lời nhắc.
- */
+
 @WebFilter(filterName = "AuthFilter", urlPatterns = "/*")
 public class AuthFilter implements Filter {
 
