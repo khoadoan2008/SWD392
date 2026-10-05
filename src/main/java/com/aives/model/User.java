@@ -14,7 +14,6 @@ public class User {
     private boolean active;
     private Timestamp createdAt;
 
-    /** Chữ cái viết tắt cho avatar, VD "Nguyễn Văn An" -> "NA". */
     public String getInitials() {
         if (fullName == null || fullName.trim().isEmpty()) {
             return "?";

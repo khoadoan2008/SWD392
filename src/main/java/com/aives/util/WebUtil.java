@@ -5,7 +5,6 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/** Các hàm tiện ích nhỏ dùng chung cho servlet. */
 public final class WebUtil {
 
     private WebUtil() {
@@ -50,10 +49,7 @@ public final class WebUtil {
     /** Session attribute: trang người dùng định vào, mở lại sau khi đăng nhập thành công. */
     public static final String REDIRECT_AFTER_LOGIN = "redirectAfterLogin";
 
-    /**
-     * Không trả lỗi 403 mà đưa người dùng về trang đăng nhập kèm lời nhắc lịch sự.
-     * Với request GET, ghi nhớ trang đang mở để quay lại sau khi đăng nhập.
-     */
+    
     public static void redirectToLogin(HttpServletRequest req, HttpServletResponse resp, String message)
             throws IOException {
         if ("GET".equals(req.getMethod())) {

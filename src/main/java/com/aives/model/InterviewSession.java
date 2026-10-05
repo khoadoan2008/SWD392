@@ -23,7 +23,6 @@ public class InterviewSession {
     private Timestamp endedAt;
     private List<InterviewTurn> turns = new ArrayList<>();
 
-    // ---- Số liệu tổng hợp cho màn hình kết quả / transcript ----
     public int getMainCount() {
         int n = 0;
         for (InterviewTurn t : turns) {

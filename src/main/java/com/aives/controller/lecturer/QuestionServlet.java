@@ -23,11 +23,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 1 - CRUD ngân hàng câu hỏi.
- * GET  ?action=list|create|edit|generate&id=
- * POST action=save|delete|status|generate
- */
+
 @WebServlet("/lecturer/questions")
 public class QuestionServlet extends HttpServlet {
 
@@ -180,7 +176,6 @@ public class QuestionServlet extends HttpServlet {
                 : "/lecturer/questions?action=edit&id=" + q.getId()));
     }
 
-    /** Sinh câu hỏi bằng "AI" (stub) -> trạng thái Chờ duyệt. */
     private void generate(HttpServletRequest req, HttpServletResponse resp) throws SQLException, IOException {
         User user = WebUtil.currentUser(req);
         int subjectId = WebUtil.intParam(req, "subjectId", 0);
@@ -204,7 +199,6 @@ public class QuestionServlet extends HttpServlet {
         resp.sendRedirect(req.getContextPath() + "/lecturer/questions?status=" + QuestionStatus.PENDING_REVIEW);
     }
 
-    /** Lấy câu hỏi và kiểm tra quyền; tự gửi 404/403 và trả null nếu không hợp lệ. */
     private Question loadAuthorized(HttpServletRequest req, HttpServletResponse resp, int id)
             throws SQLException, IOException {
         Question q = questionDAO.findById(id);

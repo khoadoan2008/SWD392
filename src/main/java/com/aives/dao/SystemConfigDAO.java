@@ -10,7 +10,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Feature 7 - Cấu hình hệ thống (ngôn ngữ STT/TTS, giới hạn phỏng vấn). */
 public class SystemConfigDAO {
 
     public List<SystemConfig> findAll() throws SQLException {

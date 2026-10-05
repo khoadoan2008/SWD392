@@ -1,6 +1,5 @@
 package com.aives.model;
 
-/** Vòng đời câu hỏi: chỉ APPROVED mới thuộc ngân hàng chính thức. */
 public enum QuestionStatus {
     DRAFT("Nháp"),
     PENDING_REVIEW("Chờ duyệt"),

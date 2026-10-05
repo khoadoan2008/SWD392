@@ -17,12 +17,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 3 - Sinh viên phỏng vấn với AI.
- * GET  (không id)  -> chọn môn + lịch sử lượt thi
- * GET  ?id=        -> câu hỏi hiện tại (đang thi) hoặc kết quả (đã xong)
- * POST action=start (subjectId) | answer (id, turnId, transcript) | abort (id)
- */
+
 @WebServlet("/student/interview")
 public class InterviewServlet extends HttpServlet {
 
@@ -58,7 +53,6 @@ public class InterviewServlet extends HttpServlet {
             }
             se.setTurns(interviewDAO.findTurns(se.getId()));
             if (current != null && current.isFollowUp()) {
-                // Câu trả lời ngay trước đó -> hiển thị lý do AI hỏi xoáy
                 InterviewTurn prev = null;
                 for (InterviewTurn t : se.getTurns()) {
                     if (t.getMainIndex() == current.getMainIndex() && t.getAnsweredAt() != null) {
@@ -108,7 +102,6 @@ public class InterviewServlet extends HttpServlet {
         }
     }
 
-    /** Sinh viên chỉ được xem lượt thi của chính mình. */
     private InterviewSession loadOwn(HttpServletRequest req, HttpServletResponse resp, int id)
             throws SQLException, IOException {
         InterviewSession se = interviewDAO.findSession(id);

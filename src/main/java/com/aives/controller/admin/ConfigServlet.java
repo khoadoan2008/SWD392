@@ -13,7 +13,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/** Feature 7 - Xem / sửa cấu hình hệ thống (ngôn ngữ STT/TTS, giới hạn phỏng vấn). */
 @WebServlet("/admin/configs")
 public class ConfigServlet extends HttpServlet {
 

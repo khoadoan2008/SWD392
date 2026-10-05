@@ -15,7 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Feature 1 - CRUD ngân hàng câu hỏi. */
 public class QuestionDAO {
 
     private static final String SELECT =
@@ -24,11 +23,6 @@ public class QuestionDAO {
             + " q.reviewed_by, q.created_at, q.updated_at"
             + " FROM questions q JOIN subjects s ON s.id = q.subject_id JOIN users u ON u.id = q.created_by";
 
-    /**
-     * Lọc câu hỏi.
-     *
-     * @param lecturerId nếu khác null: chỉ lấy câu hỏi thuộc các môn giảng viên được phân công
-     */
     public List<Question> search(Integer lecturerId, Integer subjectId, QuestionStatus status,
                                  BloomLevel bloom, String keyword) throws SQLException {
         StringBuilder sql = new StringBuilder(SELECT).append(" WHERE 1=1");
@@ -70,7 +64,6 @@ public class QuestionDAO {
         return list;
     }
 
-    /** Thống kê số câu hỏi theo trạng thái (key = tên status, thêm key TOTAL) cho thẻ thống kê. */
     public Map<String, Integer> countByStatus(Integer lecturerId) throws SQLException {
         String sql = "SELECT status, COUNT(*) FROM questions"
                 + (lecturerId != null
@@ -105,7 +98,6 @@ public class QuestionDAO {
         }
     }
 
-    /** Feature 3 dùng: chọn ngẫu nhiên n câu đã duyệt của môn. */
     public List<Question> findRandomApproved(int subjectId, int n) throws SQLException {
         String sql = SELECT + " WHERE q.subject_id = ? AND q.status = 'APPROVED' ORDER BY RANDOM() LIMIT ?";
         List<Question> list = new ArrayList<>();
@@ -156,7 +148,6 @@ public class QuestionDAO {
         }
     }
 
-    /** Duyệt / loại bỏ / gửi duyệt câu hỏi. reviewerId null khi chỉ đổi về nháp. */
     public void updateStatus(int id, QuestionStatus status, Integer reviewerId) throws SQLException {
         String sql = "UPDATE questions SET status = ?, reviewed_by = ?, updated_at = LOCALTIMESTAMP WHERE id = ?";
         try (Connection c = DBContext.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {

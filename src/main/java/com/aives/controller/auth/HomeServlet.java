@@ -8,7 +8,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/** Điều hướng về trang chính theo vai trò sau khi đăng nhập. */
 @WebServlet("/home")
 public class HomeServlet extends HttpServlet {
 

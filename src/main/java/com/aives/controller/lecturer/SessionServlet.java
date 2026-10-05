@@ -18,11 +18,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- * Feature 3 - Giảng viên xem / xoá các lượt phỏng vấn AI (transcript đầy đủ).
- * GET  ?action=list|view&id=
- * POST action=delete
- */
+
 @WebServlet("/lecturer/sessions")
 public class SessionServlet extends HttpServlet {
 

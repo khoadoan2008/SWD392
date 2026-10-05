@@ -9,7 +9,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Feature 7 - CRUD môn học. */
 public class SubjectDAO {
 
     public List<Subject> findAll() throws SQLException {
@@ -20,7 +19,6 @@ public class SubjectDAO {
         return query("SELECT id, code, name, description, active FROM subjects WHERE active = TRUE ORDER BY code", null);
     }
 
-    /** Các môn giảng viên được phân công (để giới hạn quyền quản lý câu hỏi). */
     public List<Subject> findByLecturer(int lecturerId) throws SQLException {
         return query("SELECT s.id, s.code, s.name, s.description, s.active FROM subjects s"
                 + " JOIN lecturer_subjects ls ON ls.subject_id = s.id"

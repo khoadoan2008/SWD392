@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Feature 7 - CRUD tài khoản + phân quyền giảng viên/môn học. */
 public class UserDAO {
 
     private static final String COLUMNS =
@@ -39,7 +38,6 @@ public class UserDAO {
         }
     }
 
-    /** Tìm kiếm theo vai trò (null = tất cả) và từ khoá (username / họ tên / MSSV). */
     public List<User> search(Role role, String keyword) throws SQLException {
         StringBuilder sql = new StringBuilder("SELECT " + COLUMNS + " FROM users WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -123,7 +121,6 @@ public class UserDAO {
         }
     }
 
-    /** Cập nhật thông tin; passwordHash null = giữ nguyên mật khẩu cũ. */
     public void update(User u) throws SQLException {
         boolean changePassword = u.getPasswordHash() != null;
         String sql = "UPDATE users SET full_name = ?, email = ?, role = ?, student_code = ?, active = ?"
@@ -143,7 +140,6 @@ public class UserDAO {
         }
     }
 
-    /** Xoá cứng; ném SQLException nếu tài khoản đã có dữ liệu liên quan (câu hỏi, lượt thi). */
     public void delete(int id) throws SQLException {
         try (Connection c = DBContext.getConnection();
              PreparedStatement ps = c.prepareStatement("DELETE FROM users WHERE id = ?")) {
@@ -167,7 +163,6 @@ public class UserDAO {
         return ids;
     }
 
-    /** Ghi đè toàn bộ danh sách môn được phân công cho giảng viên (trong 1 transaction). */
     public void replaceLecturerSubjects(int lecturerId, List<Integer> subjectIds) throws SQLException {
         try (Connection c = DBContext.getConnection()) {
             c.setAutoCommit(false);
