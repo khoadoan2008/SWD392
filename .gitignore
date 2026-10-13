@@ -1,5 +1,10 @@
 # Build output
 target/
+**/target/
+dist/
+**/dist/
+node_modules/
+**/node_modules/
 
 # IDE
 nbproject/private/
