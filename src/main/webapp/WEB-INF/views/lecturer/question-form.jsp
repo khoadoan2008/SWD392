@@ -5,14 +5,17 @@
 %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <c:set var="isNew" value="${q.id == 0}"/>
-<c:set var="pageTitle" scope="request" value="${isNew ? 'Thêm câu hỏi mới' : 'Biên tập & duyệt câu hỏi'}"/>
+<c:set var="pageTitle" scope="request" value="${isNew ? 'Thêm câu hỏi mới' : (q.status == 'PENDING_REVIEW' ? 'Duyệt câu hỏi AI' : 'Biên tập & duyệt câu hỏi')}"/>
 <%@ include file="/WEB-INF/views/common/header.jspf" %>
 
-<div class="row" style="margin-bottom:16px">
+<div class="row between" style="margin-bottom:16px;flex-wrap:wrap">
     <a class="btn sm ghost" href="${ctx}/lecturer/questions"><svg class="icon"><use href="${ico}#i-arrow-left"/></svg>Ngân hàng câu hỏi</a>
+    <c:if test="${q.status == 'PENDING_REVIEW'}">
+        <a class="btn sm" href="${ctx}/lecturer/questions?status=PENDING_REVIEW"><svg class="icon"><use href="${ico}#i-layers"/></svg>Chế độ duyệt batch</a>
+    </c:if>
 </div>
 
-<div class="split">
+<div class="split wide-side">
     <div>
         <%-- ===== Nội dung câu hỏi ===== --%>
         <div class="card">
@@ -46,7 +49,7 @@
 
                 <label for="content">Câu hỏi</label>
                 <textarea id="content" name="content" required placeholder="Nhập nội dung câu hỏi vấn đáp..."><c:out value="${q.content}"/></textarea>
-                <label for="referenceAnswer">Đáp án tham khảo</label>
+                <label for="referenceAnswer">Đáp án kỳ vọng</label>
                 <textarea id="referenceAnswer" name="referenceAnswer" placeholder="Các ý chính mà sinh viên cần trình bày (chỉ giảng viên thấy)"><c:out value="${q.referenceAnswer}"/></textarea>
 
                 <div class="form-actions">
@@ -58,18 +61,32 @@
 
         <%-- ===== Rubric ===== --%>
         <div class="card" id="rubrics">
-            <div class="card-header">
-                <div><h2>Rubric chấm điểm</h2>
-                    <p class="muted small">Tiêu chí + thang điểm là căn cứ để AI gợi ý và giảng viên chấm. Từ khoá giúp AI phát hiện thiếu ý để hỏi xoáy.</p></div>
-            </div>
             <c:choose>
                 <c:when test="${isNew}">
                     <div class="empty"><svg class="icon"><use href="${ico}#i-target"/></svg>
                         <div>Hãy lưu câu hỏi trước, sau đó thêm tiêu chí rubric.</div></div>
                 </c:when>
                 <c:otherwise>
-                    <div class="rubric-row head"><span>Thứ tự</span><span>Tiêu chí</span><span>Từ khoá (phân tách dấu phẩy)</span><span>Điểm</span><span></span></div>
                     <c:set var="total" value="0"/>
+                    <div class="card-header row between" style="margin-top:-8px;padding-top:0">
+                        <div><h2>Rubric gợi ý</h2>
+                            <p class="muted small">Trình chỉnh sửa rubric — tiêu chí, thang điểm và từ khoá cho AI.</p></div>
+                    </div>
+                    <c:if test="${not empty q.rubrics}">
+                        <table class="rubric-preview">
+                            <thead><tr><th>Tiêu chí</th><th>Mô tả đạt yêu cầu</th><th>Điểm</th></tr></thead>
+                            <tbody>
+                            <c:forEach items="${q.rubrics}" var="rp">
+                                <tr>
+                                    <td><c:out value="${rp.criterion}"/></td>
+                                    <td class="muted small">Xuất sắc 100% · Đạt 70% · Cần cải thiện 30%</td>
+                                    <td class="nowrap"><c:out value="${rp.maxScore}"/></td>
+                                </tr>
+                            </c:forEach>
+                            </tbody>
+                        </table>
+                    </c:if>
+                    <div class="rubric-row head"><span>Thứ tự</span><span>Tiêu chí</span><span>Từ khoá (phân tách dấu phẩy)</span><span>Điểm</span><span></span></div>
                     <c:forEach items="${q.rubrics}" var="r">
                         <c:set var="total" value="${total + r.maxScore}"/>
                         <div class="rubric-row">
@@ -101,7 +118,7 @@
                             <button class="btn sm primary" type="submit" name="action" value="save"><svg class="icon"><use href="${ico}#i-plus"/></svg>Thêm</button>
                         </form>
                     </div>
-                    <div class="score-total"><span>Tổng điểm rubric</span><span>${total} điểm</span></div>
+                    <div class="score-total"><span>Tổng điểm rubric</span><span id="rubricTotalValue">${total} điểm</span></div>
                 </c:otherwise>
             </c:choose>
         </div>
@@ -127,7 +144,7 @@
                     <c:if test="${q.status != 'APPROVED'}">
                         <form method="post" action="${ctx}/lecturer/questions">
                             <input type="hidden" name="action" value="status"><input type="hidden" name="id" value="${q.id}"><input type="hidden" name="to" value="APPROVED">
-                            <button class="btn success block" type="submit"><svg class="icon"><use href="${ico}#i-check-circle"/></svg>Duyệt vào ngân hàng chính thức</button>
+                            <button class="btn success block" type="submit"><svg class="icon"><use href="${ico}#i-check-circle"/></svg>Phê duyệt vào ngân hàng</button>
                         </form>
                     </c:if>
                     <div class="row" style="flex-wrap:nowrap">
@@ -148,18 +165,42 @@
             </div>
         </c:if>
 
-        <div class="card">
-            <h2>Thang nhận thức Bloom</h2>
-            <p class="muted small">Chọn mức phù hợp với mục tiêu đánh giá.</p>
-            <dl class="kv mt" style="grid-template-columns:96px 1fr">
-                <dt><span class="bloom REMEMBER">Nhớ</span></dt><dd class="small muted" style="font-weight:400">Nêu, liệt kê, định nghĩa</dd>
-                <dt><span class="bloom UNDERSTAND">Hiểu</span></dt><dd class="small muted" style="font-weight:400">Giải thích, so sánh, diễn giải</dd>
-                <dt><span class="bloom APPLY">Vận dụng</span></dt><dd class="small muted" style="font-weight:400">Áp dụng vào tình huống cụ thể</dd>
-                <dt><span class="bloom ANALYZE">Phân tích</span></dt><dd class="small muted" style="font-weight:400">Tách thành phần, tìm quan hệ</dd>
-                <dt><span class="bloom EVALUATE">Đánh giá</span></dt><dd class="small muted" style="font-weight:400">Phán đoán, lập luận, bảo vệ</dd>
-                <dt><span class="bloom CREATE">Sáng tạo</span></dt><dd class="small muted" style="font-weight:400">Thiết kế, đề xuất giải pháp mới</dd>
-            </dl>
-        </div>
+        <c:choose>
+            <c:when test="${!isNew && not empty q.rubrics}">
+                <div class="card ai-panel">
+                    <div class="row" style="align-items:flex-start">
+                        <span class="avatar" style="border-radius:10px;width:40px;height:40px"><svg class="icon"><use href="${ico}#i-bot"/></svg></span>
+                        <div>
+                            <h2>Cách AI chấm gợi ý</h2>
+                            <p class="muted small">AI phân tích transcript theo rubric và gợi ý điểm từng tiêu chí.</p>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <p class="small muted">Transcript mẫu</p>
+                    <div class="transcript-sample">
+                        <p>“…<mark>UDP</mark> không cần handshake nên phù hợp ứng dụng real-time…”</p>
+                    </div>
+                    <div class="alert info small">
+                        <svg class="icon"><use href="${ico}#i-sparkles"/></svg>
+                        <span><b><c:out value="${q.rubrics[0].criterion}"/></b> · gợi ý điểm theo rubric</span>
+                    </div>
+                </div>
+            </c:when>
+            <c:otherwise>
+                <div class="card">
+                    <h2>Thang nhận thức Bloom</h2>
+                    <p class="muted small">Chọn mức phù hợp với mục tiêu đánh giá.</p>
+                    <dl class="kv mt" style="grid-template-columns:96px 1fr">
+                        <dt><span class="bloom REMEMBER">Nhớ</span></dt><dd class="small muted" style="font-weight:400">Nêu, liệt kê, định nghĩa</dd>
+                        <dt><span class="bloom UNDERSTAND">Hiểu</span></dt><dd class="small muted" style="font-weight:400">Giải thích, so sánh, diễn giải</dd>
+                        <dt><span class="bloom APPLY">Vận dụng</span></dt><dd class="small muted" style="font-weight:400">Áp dụng vào tình huống cụ thể</dd>
+                        <dt><span class="bloom ANALYZE">Phân tích</span></dt><dd class="small muted" style="font-weight:400">Tách thành phần, tìm quan hệ</dd>
+                        <dt><span class="bloom EVALUATE">Đánh giá</span></dt><dd class="small muted" style="font-weight:400">Phán đoán, lập luận, bảo vệ</dd>
+                        <dt><span class="bloom CREATE">Sáng tạo</span></dt><dd class="small muted" style="font-weight:400">Thiết kế, đề xuất giải pháp mới</dd>
+                    </dl>
+                </div>
+            </c:otherwise>
+        </c:choose>
     </aside>
 </div>
 <%@ include file="/WEB-INF/views/common/footer.jspf" %>

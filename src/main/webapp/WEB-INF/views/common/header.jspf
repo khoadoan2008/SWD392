@@ -34,11 +34,13 @@
                 <a href="${ctx}/admin/configs" class="${activeNav == 'configs' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-settings"/></svg>Cấu hình hệ thống</a>
             </c:if>
             <c:if test="${me.role == 'ADMIN' || me.role == 'LECTURER'}">
-                <div class="nav-group">Ngân hàng câu hỏi</div>
-                <a href="${ctx}/lecturer/questions" class="${activeNav == 'questions' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-library"/></svg>Câu hỏi &amp; rubric</a>
-                <a href="${ctx}/lecturer/questions?action=generate" class="${activeNav == 'generate' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-sparkles"/></svg>AI sinh câu hỏi</a>
-                <div class="nav-group">Vấn đáp</div>
-                <a href="${ctx}/lecturer/sessions" class="${activeNav == 'sessions' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-message"/></svg>Lượt phỏng vấn</a>
+                <div class="nav-group">Luồng giảng viên</div>
+                <a href="${ctx}/lecturer/questions" class="${activeNav == 'questions' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-library"/></svg>Ngân hàng câu hỏi</a>
+                <a href="${ctx}/lecturer/questions?view=rubric&amp;status=APPROVED" class="${activeNav == 'rubrics' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-target"/></svg>Rubric</a>
+                <c:if test="${me.role == 'ADMIN'}">
+                    <div class="nav-group">Vấn đáp</div>
+                    <a href="${ctx}/lecturer/sessions" class="${activeNav == 'sessions' ? 'active' : ''}"><svg class="icon"><use href="${ico}#i-message"/></svg>Lượt phỏng vấn</a>
+                </c:if>
             </c:if>
             <c:if test="${me.role == 'STUDENT'}">
                 <div class="nav-group">Vấn đáp</div>
