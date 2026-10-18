@@ -5,14 +5,17 @@
 %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <c:set var="isNew" value="${q.id == 0}"/>
-<c:set var="pageTitle" scope="request" value="${isNew ? 'Thêm câu hỏi mới' : 'Biên tập & duyệt câu hỏi'}"/>
+<c:set var="pageTitle" scope="request" value="${isNew ? 'Thêm câu hỏi mới' : (q.status == 'PENDING_REVIEW' ? 'Duyệt câu hỏi AI' : 'Biên tập & duyệt câu hỏi')}"/>
 <%@ include file="/WEB-INF/views/common/header.jspf" %>
 
-<div class="row" style="margin-bottom:16px">
+<div class="row between" style="margin-bottom:16px;flex-wrap:wrap">
     <a class="btn sm ghost" href="${ctx}/lecturer/questions"><svg class="icon"><use href="${ico}#i-arrow-left"/></svg>Ngân hàng câu hỏi</a>
+    <c:if test="${q.status == 'PENDING_REVIEW'}">
+        <a class="btn sm" href="${ctx}/lecturer/questions?status=PENDING_REVIEW"><svg class="icon"><use href="${ico}#i-layers"/></svg>Chế độ duyệt batch</a>
+    </c:if>
 </div>
 
-<div class="split">
+<div class="split wide-side">
     <div>
         <%-- ===== Nội dung câu hỏi ===== --%>
         <div class="card">
@@ -46,7 +49,7 @@
 
                 <label for="content">Câu hỏi</label>
                 <textarea id="content" name="content" required placeholder="Nhập nội dung câu hỏi vấn đáp..."><c:out value="${q.content}"/></textarea>
-                <label for="referenceAnswer">Đáp án tham khảo</label>
+                <label for="referenceAnswer">Đáp án kỳ vọng</label>
                 <textarea id="referenceAnswer" name="referenceAnswer" placeholder="Các ý chính mà sinh viên cần trình bày (chỉ giảng viên thấy)"><c:out value="${q.referenceAnswer}"/></textarea>
 
                 <div class="form-actions">
@@ -58,50 +61,96 @@
 
         <%-- ===== Rubric ===== --%>
         <div class="card" id="rubrics">
-            <div class="card-header">
-                <div><h2>Rubric chấm điểm</h2>
-                    <p class="muted small">Tiêu chí + thang điểm là căn cứ để AI gợi ý và giảng viên chấm. Từ khoá giúp AI phát hiện thiếu ý để hỏi xoáy.</p></div>
-            </div>
             <c:choose>
                 <c:when test="${isNew}">
                     <div class="empty"><svg class="icon"><use href="${ico}#i-target"/></svg>
-                        <div>Hãy lưu câu hỏi trước, sau đó thêm tiêu chí rubric.</div></div>
+                        <div>Hãy lưu câu hỏi trước, sau đó thiết lập rubric.</div></div>
                 </c:when>
                 <c:otherwise>
-                    <div class="rubric-row head"><span>Thứ tự</span><span>Tiêu chí</span><span>Từ khoá (phân tách dấu phẩy)</span><span>Điểm</span><span></span></div>
                     <c:set var="total" value="0"/>
-                    <c:forEach items="${q.rubrics}" var="r">
-                        <c:set var="total" value="${total + r.maxScore}"/>
-                        <div class="rubric-row">
-                            <input form="r${r.id}" type="number" name="sortOrder" value="${r.sortOrder}" aria-label="Thứ tự">
-                            <input form="r${r.id}" type="text" name="criterion" value="${fn:escapeXml(r.criterion)}" aria-label="Tiêu chí" required>
-                            <input form="r${r.id}" type="text" name="keywords" value="${fn:escapeXml(r.keywords)}" aria-label="Từ khoá">
-                            <input form="r${r.id}" type="number" name="maxScore" value="${r.maxScore}" step="0.25" min="0.25" aria-label="Điểm tối đa" required>
-                            <form id="r${r.id}" method="post" action="${ctx}/lecturer/rubrics" class="row" style="flex-wrap:nowrap;gap:4px">
-                                <input type="hidden" name="questionId" value="${q.id}">
-                                <input type="hidden" name="id" value="${r.id}">
-                                <button class="btn sm ghost icon-btn" title="Lưu" type="submit" name="action" value="save"><svg class="icon"><use href="${ico}#i-check"/></svg></button>
-                                <button class="btn sm ghost icon-btn danger" title="Xoá" type="submit" name="action" value="delete"
-                                        onclick="return confirm('Xoá tiêu chí này?')"><svg class="icon"><use href="${ico}#i-trash"/></svg></button>
-                            </form>
+                    <div class="card-header row between" style="margin-top:-8px;padding-top:0">
+                        <div>
+                            <h2>Rubric gợi ý</h2>
+                            <p class="muted small">Tiêu chí, thang điểm và từ khoá để AI chấm thi nhất quán.</p>
                         </div>
-                    </c:forEach>
-                    <c:if test="${empty q.rubrics}">
-                        <p class="muted small" style="padding:12px 0">Chưa có tiêu chí nào. Cần ít nhất 1 tiêu chí để duyệt câu hỏi.</p>
+                        <a class="btn sm primary" href="${ctx}/lecturer/questions?view=rubric&amp;id=${q.id}">
+                            <svg class="icon"><use href="${ico}#i-target"/></svg>Mở trình chỉnh sửa Rubric
+                        </a>
+                    </div>
+
+                    <!-- Hiển thị các tiêu chí dạng Card 3 mức độ đạt -->
+                    <c:if test="${not empty q.rubrics}">
+                        <c:forEach items="${q.rubrics}" var="r" varStatus="rst">
+                            <c:set var="total" value="${total + r.maxScore}"/>
+                            <div class="rubric-criterion">
+                                <div class="rubric-criterion-head">
+                                    <div class="rubric-criterion-title">
+                                        <span>${rst.index + 1}.</span>
+                                        <span><c:out value="${r.criterion}"/></span>
+                                    </div>
+                                    <div class="row" style="gap:8px">
+                                        <span class="rubric-badge-score"><c:out value="${r.maxScore}"/> điểm</span>
+                                        <form method="post" action="${ctx}/lecturer/rubrics" style="display:inline">
+                                            <input type="hidden" name="questionId" value="${q.id}">
+                                            <input type="hidden" name="id" value="${r.id}">
+                                            <button class="btn sm ghost icon-btn danger" title="Xoá tiêu chí" type="submit" name="action" value="delete"
+                                                    onclick="return confirm('Xoá tiêu chí này?')">
+                                                <svg class="icon"><use href="${ico}#i-trash"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div class="rubric-levels-grid">
+                                    <div class="rubric-level-card">
+                                        <span class="rubric-level-pill excellent">Xuất sắc - 100%</span>
+                                        <p class="small text-2" style="margin:0"><c:out value="${not empty r.keywords ? r.keywords : 'Phân tích đầy đủ và chính xác tất cả khía cạnh kỹ thuật.'}"/></p>
+                                    </div>
+                                    <div class="rubric-level-card">
+                                        <span class="rubric-level-pill good">Đạt - 70%</span>
+                                        <p class="small text-2" style="margin:0">Hiểu đúng bản chất, trả lời đúng phần lớn yêu cầu trọng tâm.</p>
+                                    </div>
+                                    <div class="rubric-level-card">
+                                        <span class="rubric-level-pill improve">Cần cải thiện - 30%</span>
+                                        <p class="small text-2" style="margin:0">Lập luận còn chung chung, thiếu cơ sở kỹ thuật hoặc ví dụ cụ thể.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </c:forEach>
                     </c:if>
 
-                    <div class="rubric-row new">
-                        <input form="rNew" type="number" name="sortOrder" value="${fn:length(q.rubrics) + 1}" aria-label="Thứ tự">
-                        <input form="rNew" type="text" name="criterion" placeholder="VD: Nêu đúng 3 phương thức vòng đời" aria-label="Tiêu chí mới" required>
-                        <input form="rNew" type="text" name="keywords" placeholder="init, service, destroy" aria-label="Từ khoá">
-                        <input form="rNew" type="number" name="maxScore" value="1" step="0.25" min="0.25" aria-label="Điểm tối đa" required>
-                        <form id="rNew" method="post" action="${ctx}/lecturer/rubrics">
+                    <c:if test="${empty q.rubrics}">
+                        <div class="empty" style="padding:24px 0">
+                            <svg class="icon"><use href="${ico}#i-target"/></svg>
+                            <p class="muted small">Chưa có tiêu chí nào. Hãy bổ sung tiêu chí để AI hỗ trợ chấm thi.</p>
+                        </div>
+                    </c:if>
+
+                    <!-- Form thêm tiêu chí mới nhanh -->
+                    <div class="card" style="background:var(--surface-2);border:1px dashed #cbd5e1;padding:14px;margin-top:12px">
+                        <strong class="small" style="display:block;margin-bottom:8px">Thêm nhanh tiêu chí mới:</strong>
+                        <form method="post" action="${ctx}/lecturer/rubrics">
                             <input type="hidden" name="questionId" value="${q.id}">
                             <input type="hidden" name="id" value="0">
-                            <button class="btn sm primary" type="submit" name="action" value="save"><svg class="icon"><use href="${ico}#i-plus"/></svg>Thêm</button>
+                            <input type="hidden" name="sortOrder" value="${fn:length(q.rubrics) + 1}">
+                            <div class="grid-3" style="margin-bottom:8px">
+                                <div style="grid-column: span 2">
+                                    <input type="text" name="criterion" placeholder="Tên tiêu chí (VD: Lập luận kỹ thuật)" required aria-label="Tên tiêu chí">
+                                </div>
+                                <div>
+                                    <input type="number" name="maxScore" value="3" step="0.5" min="0.5" placeholder="Điểm tối đa" required aria-label="Điểm">
+                                </div>
+                            </div>
+                            <input type="text" name="keywords" placeholder="Từ khoá / mô tả mức xuất sắc (VD: độ trễ, tin cậy, overhead)" style="margin-bottom:10px" aria-label="Mô tả">
+                            <button class="btn sm primary" type="submit" name="action" value="save">
+                                <svg class="icon"><use href="${ico}#i-plus"/></svg>Thêm tiêu chí
+                            </button>
                         </form>
                     </div>
-                    <div class="score-total"><span>Tổng điểm rubric</span><span>${total} điểm</span></div>
+
+                    <div class="score-total" style="margin-top:16px">
+                        <span>Tổng điểm rubric hiện tại</span>
+                        <span id="rubricTotalValue">${total} điểm</span>
+                    </div>
                 </c:otherwise>
             </c:choose>
         </div>
@@ -127,7 +176,7 @@
                     <c:if test="${q.status != 'APPROVED'}">
                         <form method="post" action="${ctx}/lecturer/questions">
                             <input type="hidden" name="action" value="status"><input type="hidden" name="id" value="${q.id}"><input type="hidden" name="to" value="APPROVED">
-                            <button class="btn success block" type="submit"><svg class="icon"><use href="${ico}#i-check-circle"/></svg>Duyệt vào ngân hàng chính thức</button>
+                            <button class="btn success block" type="submit"><svg class="icon"><use href="${ico}#i-check-circle"/></svg>Phê duyệt vào ngân hàng</button>
                         </form>
                     </c:if>
                     <div class="row" style="flex-wrap:nowrap">
@@ -148,18 +197,42 @@
             </div>
         </c:if>
 
-        <div class="card">
-            <h2>Thang nhận thức Bloom</h2>
-            <p class="muted small">Chọn mức phù hợp với mục tiêu đánh giá.</p>
-            <dl class="kv mt" style="grid-template-columns:96px 1fr">
-                <dt><span class="bloom REMEMBER">Nhớ</span></dt><dd class="small muted" style="font-weight:400">Nêu, liệt kê, định nghĩa</dd>
-                <dt><span class="bloom UNDERSTAND">Hiểu</span></dt><dd class="small muted" style="font-weight:400">Giải thích, so sánh, diễn giải</dd>
-                <dt><span class="bloom APPLY">Vận dụng</span></dt><dd class="small muted" style="font-weight:400">Áp dụng vào tình huống cụ thể</dd>
-                <dt><span class="bloom ANALYZE">Phân tích</span></dt><dd class="small muted" style="font-weight:400">Tách thành phần, tìm quan hệ</dd>
-                <dt><span class="bloom EVALUATE">Đánh giá</span></dt><dd class="small muted" style="font-weight:400">Phán đoán, lập luận, bảo vệ</dd>
-                <dt><span class="bloom CREATE">Sáng tạo</span></dt><dd class="small muted" style="font-weight:400">Thiết kế, đề xuất giải pháp mới</dd>
-            </dl>
-        </div>
+        <c:choose>
+            <c:when test="${!isNew && not empty q.rubrics}">
+                <div class="card ai-panel">
+                    <div class="row" style="align-items:flex-start">
+                        <span class="avatar" style="border-radius:10px;width:40px;height:40px"><svg class="icon"><use href="${ico}#i-bot"/></svg></span>
+                        <div>
+                            <h2>Cách AI chấm gợi ý</h2>
+                            <p class="muted small">AI phân tích transcript theo rubric và gợi ý điểm từng tiêu chí.</p>
+                        </div>
+                    </div>
+                    <div class="divider"></div>
+                    <p class="small muted">Transcript mẫu</p>
+                    <div class="transcript-sample">
+                        <p>“…<mark>UDP</mark> không cần handshake nên phù hợp ứng dụng real-time…”</p>
+                    </div>
+                    <div class="alert info small">
+                        <svg class="icon"><use href="${ico}#i-sparkles"/></svg>
+                        <span><b><c:out value="${q.rubrics[0].criterion}"/></b> · gợi ý điểm theo rubric</span>
+                    </div>
+                </div>
+            </c:when>
+            <c:otherwise>
+                <div class="card">
+                    <h2>Thang nhận thức Bloom</h2>
+                    <p class="muted small">Chọn mức phù hợp với mục tiêu đánh giá.</p>
+                    <dl class="kv mt" style="grid-template-columns:96px 1fr">
+                        <dt><span class="bloom REMEMBER">Nhớ</span></dt><dd class="small muted" style="font-weight:400">Nêu, liệt kê, định nghĩa</dd>
+                        <dt><span class="bloom UNDERSTAND">Hiểu</span></dt><dd class="small muted" style="font-weight:400">Giải thích, so sánh, diễn giải</dd>
+                        <dt><span class="bloom APPLY">Vận dụng</span></dt><dd class="small muted" style="font-weight:400">Áp dụng vào tình huống cụ thể</dd>
+                        <dt><span class="bloom ANALYZE">Phân tích</span></dt><dd class="small muted" style="font-weight:400">Tách thành phần, tìm quan hệ</dd>
+                        <dt><span class="bloom EVALUATE">Đánh giá</span></dt><dd class="small muted" style="font-weight:400">Phán đoán, lập luận, bảo vệ</dd>
+                        <dt><span class="bloom CREATE">Sáng tạo</span></dt><dd class="small muted" style="font-weight:400">Thiết kế, đề xuất giải pháp mới</dd>
+                    </dl>
+                </div>
+            </c:otherwise>
+        </c:choose>
     </aside>
 </div>
 <%@ include file="/WEB-INF/views/common/footer.jspf" %>
