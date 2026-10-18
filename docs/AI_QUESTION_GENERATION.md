@@ -1,26 +1,16 @@
 # Material-grounded Gemini question generation on the updated team project
 
-## Base and safety copies
+## Integration base
 
-This feature is integrated on main commit e2d64da (2026-10-18) on the existing local branch
-feature/be-ai-question-generation. It retains the leader's router, dashboard, admin/student pages,
-question list/edit/review screens, JPA entities and repositories. No commit or push was performed.
-
-Before updating, all 55 changed/new source files were copied and SHA-256 verified outside Git:
-C:/Users/User/Documents/Codex/2026-09-10/t-o-nh-v/output/backups/before-leader-sync-20261018-152516.
-The original changes also remain in the Git stash named
-"safety: AI workflow before leader main sync 2026-10-18". Do not pop the whole stash on this new base.
-That backup includes the earlier SQL Server experiment; it is not the current team's database setup.
-Credentials were not included in the source backup or stash. config.local.properties stays ignored,
-with a local .git/info/exclude safeguard even when switching to branches without the ignore rule.
+Branch feature/be-ai-question-generation includes the leader's main commit 7b32f66 (2026-10-18),
+including Swagger UI, the Maven wrapper and the latest PostgreSQL settings. It retains the leader's
+router, dashboard, admin/student pages, question list/edit/review screens, JPA entities and repositories.
 
 ## Database decision
 
 This integration keeps the leader's PostgreSQL driver, connection defaults, entity mappings and
-database scripts. No SQL Server conversion, database creation, schema import or existing database
-mutation was performed during this integration. The old SQL Server database/tools remain untouched.
-Do not copy the five-table MSSQL demo schema over this fuller project, which also has interview and
-configuration tables. The team must agree separately if its final database is to change to SQL Server.
+database scripts, including ddl-auto=update and open-in-view=false from main. The team must agree
+separately if its final database is to change to SQL Server. No new database script is required.
 
 IMPORTANT: the existing database/aives_schema.sql contains destructive DROP statements. Do not
 run it again against an existing database containing data. Use a separate disposable database for setup.
@@ -28,14 +18,14 @@ run it again against an existing database containing data. Use a separate dispos
 ## Configuration and run
 
 1. Copy config.example.properties to config.local.properties at the repository root if missing.
-   On this machine the local file already exists. Paste your Gemini key after GEMINI_API_KEY=;
+   Paste your Gemini key after GEMINI_API_KEY=;
    no quotes. Set GEMINI_MODEL if needed (default gemini-3.8-flash). Restart the backend after edits.
 2. The application reads local configuration from either the repository root or backend directory.
    API keys never go in React/VITE_ settings, Java source, screenshots, chat, commits or PRs.
 3. PostgreSQL is still configured by the team's application.yml. Set SPRING_DATASOURCE_URL,
    SPRING_DATASOURCE_USERNAME and SPRING_DATASOURCE_PASSWORD on your own machine if needed.
-   The DB_URL / DB_USER / DB_PASSWORD keys from the earlier SQL Server experiment are NOT used by
-   this version, and do not switch it to SQL Server.
+   Main also supports DB_URL / DB_USERNAME / DB_PASSWORD. Check any existing local configuration
+   before running: these now override PostgreSQL defaults. Remove obsolete SQL Server settings.
 4. Use Java 21 and Maven: mvn -f backend/pom.xml spring-boot:run.
 5. In another terminal: npm --prefix frontend ci, then npm --prefix frontend run dev -- --host 127.0.0.1.
 6. Open http://127.0.0.1:5173, log in with an existing assigned lecturer account, and open the existing
@@ -86,8 +76,10 @@ out, check the question list before making another intentional request. Google q
 
 ## Verification
 
-Final local checks on 2026-10-18: Maven package succeeded with 69 tests, zero failures/errors
-(19 security/controller/JPA integration tests plus 50 unit tests). React production build succeeded.
+Final local checks on 2026-10-18 after syncing main: 70 Maven tests passed, zero failures/errors
+(20 security/controller/JPA integration tests plus 50 unit tests). React production build succeeded.
+The executable JAR was packaged from an isolated copy of the same backend sources because Windows
+held the running demo JAR open in the original target directory.
 Lint exited successfully with warnings in existing unrelated leader pages/AuthContext; no additional
 frontend dependency or router changes were needed. git diff --check passed.
 
@@ -131,12 +123,13 @@ endpoint, without relaxing admin access or changing role permissions. React buil
 
 - backend/pom.xml: PDFBox 3.0.8, POI 5.5.1, Gson 2.13.2, test-only H2; PostgreSQL driver unchanged.
 - application.yml: optional local key config import, multipart size bounds, SQL logging disabled;
-  datasource/JWT values unchanged.
+  latest main datasource/JPA/JWT settings retained.
 - SecurityConfig: localhost and 127.0.0.1 CORS, Idempotency-Key header.
 - LecturerQuestionController: multipart overload + assigned generation subject endpoint;
   legacy JSON contract retained.
 - SubjectRepository: correct assigned-subject JPQL join.
-- QuestionService: current assignment lookup, AI rubric total check at approval.
+- QuestionService: current assignment lookup, AI rubric total check at approval, and initialization
+  of creator/reviewer/rubrics inside the transaction for main's open-in-view=false setting.
 - Question entity: exclude lazy user assignment/proxy internals from creator/reviewer JSON while
   keeping existing fields such as id/fullName for the existing frontend.
 - frontend questionApi and QuestionGeneratePage: multipart request/file/consent; no npm dependency changes.

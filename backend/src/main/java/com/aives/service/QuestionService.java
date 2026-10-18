@@ -11,6 +11,7 @@ import com.aives.repository.QuestionRepository;
 import com.aives.repository.RubricRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +30,8 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public List<Question> searchQuestions(User currentUser, Integer subjectId, QuestionStatus status, BloomLevel bloom, String kw) {
         List<Integer> allowedSubjectIds = getAllowedSubjectIds(currentUser);
-        return questionRepository.search(allowedSubjectIds, subjectId, status, bloom, kw);
+        return questionRepository.search(allowedSubjectIds, subjectId, status, bloom, kw).stream()
+                .map(this::prepareResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +58,7 @@ public class QuestionService {
         Question q = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + id));
         checkSubjectPermission(currentUser, q.getSubject().getId());
-        return q;
+        return prepareResponse(q);
     }
 
     @Transactional
@@ -83,7 +85,7 @@ public class QuestionService {
             question.setCreatedAt(existing.getCreatedAt());
         }
 
-        return questionRepository.save(question);
+        return prepareResponse(questionRepository.save(question));
     }
 
     @Transactional
@@ -110,7 +112,7 @@ public class QuestionService {
         }
 
         q.setStatus(newStatus);
-        return questionRepository.save(q);
+        return prepareResponse(questionRepository.save(q));
     }
 
     @Transactional
@@ -138,7 +140,16 @@ public class QuestionService {
         for (Question q : generated) {
             q.setCreatedBy(currentUser);
         }
-        return questionRepository.saveAll(generated);
+        return questionRepository.saveAll(generated).stream().map(this::prepareResponse).toList();
+    }
+
+    // The controller serializes after this transaction ends (open-in-view=false).
+    // Load only the relationships in the existing question response contract.
+    private Question prepareResponse(Question question) {
+        Hibernate.initialize(question.getCreatedBy());
+        Hibernate.initialize(question.getReviewedBy());
+        Hibernate.initialize(question.getRubrics());
+        return question;
     }
 
     public List<Integer> getAllowedSubjectIds(User user) {

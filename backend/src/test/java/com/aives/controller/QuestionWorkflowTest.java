@@ -116,10 +116,28 @@ class QuestionWorkflowTest {
             .andExpect(jsonPath("$.data[0].status").value("PENDING_REVIEW"))
             .andExpect(jsonPath("$.data[0].rubrics.length()").value(2));
         int id=questions.findAll().get(0).getId();
+        mvc.perform(get("/api/lecturer/questions/"+id).header("Authorization",bearer(lecturer)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.createdBy.fullName").value(lecturer.getFullName()))
+            .andExpect(jsonPath("$.data.rubrics.length()").value(2))
+            .andExpect(jsonPath("$.data.createdBy.passwordHash").doesNotExist())
+            .andExpect(jsonPath("$.data.createdBy.assignedSubjects").doesNotExist());
         mvc.perform(patch("/api/lecturer/questions/"+id+"/status").param("to","APPROVED").header("Authorization",bearer(lecturer)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("APPROVED"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("APPROVED"))
+            .andExpect(jsonPath("$.data.reviewedBy.fullName").value(lecturer.getFullName()));
         mvc.perform(get("/api/lecturer/questions").param("status","APPROVED").header("Authorization",bearer(lecturer)))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].rubrics.length()").value(2));
+    }
+    @Test void manualCreateAndUpdateStillSerializeAfterTransactionCloses() throws Exception {
+        String payload="{\"subjectId\":"+subject.getId()+",\"topic\":\"TCP\",\"content\":\"Explain TCP\",\"referenceAnswer\":\"Reliable transport\",\"bloomLevel\":\"UNDERSTAND\"}";
+        mvc.perform(post("/api/lecturer/questions").header("Authorization",bearer(lecturer))
+                .contentType("application/json").content(payload))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.createdBy.fullName").value(lecturer.getFullName()));
+        int id=questions.findAll().get(0).getId();
+        mvc.perform(put("/api/lecturer/questions/"+id).header("Authorization",bearer(lecturer))
+                .contentType("application/json").content(payload.replace("Explain TCP","Compare TCP and UDP")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.content").value("Compare TCP and UDP"))
+            .andExpect(jsonPath("$.data.rubrics.length()").value(0));
     }
     @Test void replayDoesNotCallProviderTwice() throws Exception {
         String key=UUID.randomUUID().toString();
