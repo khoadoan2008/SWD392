@@ -5,6 +5,7 @@ import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
 import com.aives.model.enums.BloomLevel;
 import com.aives.model.enums.QuestionStatus;
+import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.Role;
 import com.aives.repository.QuestionRepository;
 import com.aives.repository.RubricRepository;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -94,6 +96,12 @@ public class QuestionService {
             if (rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).isEmpty()) {
                 throw new IllegalArgumentException("Cần có ít nhất 1 tiêu chí Rubric trước khi duyệt câu hỏi.");
             }
+            if (q.getSource() == QuestionSource.AI) {
+                BigDecimal total = rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).stream()
+                    .map(r -> r.getMaxScore()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (total.compareTo(BigDecimal.TEN) != 0)
+                    throw new IllegalArgumentException("Rubric câu hỏi AI cần có tổng 10 điểm trước khi duyệt.");
+            }
             q.setReviewedBy(reviewer);
         } else if (newStatus == QuestionStatus.DRAFT) {
             q.setReviewedBy(null);
@@ -138,11 +146,8 @@ public class QuestionService {
             return null; // Admin has access to all
         }
         List<Integer> ids = new ArrayList<>();
-        if (user.getAssignedSubjects() != null) {
-            for (Subject s : user.getAssignedSubjects()) {
-                ids.add(s.getId());
-            }
-        }
+        // The JWT principal is detached: query current assignments, not its lazy collection.
+        for (Subject s : subjectRepository.findByLecturerId(user.getId())) ids.add(s.getId());
         return ids.isEmpty() ? List.of(-1) : ids; // If no subjects assigned, return dummy id
     }
 

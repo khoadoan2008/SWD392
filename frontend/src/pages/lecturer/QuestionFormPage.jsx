@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { questionApi } from '../../api/questionApi';
-import { subjectApi } from '../../api/subjectApi';
 import { rubricApi } from '../../api/rubricApi';
 import { 
   ArrowLeft, 
@@ -51,7 +50,7 @@ export default function QuestionFormPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    subjectApi.getAll().then((res) => {
+    questionApi.getGenerationSubjects().then((res) => {
       if (res.success && res.data.length > 0) {
         setSubjects(res.data);
         if (!isEdit && !subjectId) {

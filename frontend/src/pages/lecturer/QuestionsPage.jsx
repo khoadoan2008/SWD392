@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { questionApi } from '../../api/questionApi';
-import { subjectApi } from '../../api/subjectApi';
 import { 
   HelpCircle, 
   Plus, 
@@ -78,7 +77,7 @@ export default function QuestionsPage() {
       const [resQ, resStats, resSub] = await Promise.all([
         questionApi.search(params),
         questionApi.getStats(),
-        subjectApi.getAll()
+        questionApi.getGenerationSubjects()
       ]);
 
       if (resQ.success) {

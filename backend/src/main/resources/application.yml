@@ -5,6 +5,14 @@ spring:
   application:
     name: aives-backend
 
+  config:
+    import: optional:file:./config.local.properties,optional:file:../config.local.properties
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
   datasource:
     url: jdbc:postgresql://localhost:5432/aives
     username: postgres
@@ -14,7 +22,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate # Không tự xóa/sửa schema mà kiểm tra khớp với schema hiện có
-    show-sql: true
+    show-sql: false # Avoid logging document content in database statements.
     properties:
       hibernate:
         format_sql: true

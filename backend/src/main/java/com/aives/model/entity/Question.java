@@ -4,6 +4,7 @@ import com.aives.model.enums.BloomLevel;
 import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.QuestionStatus;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -55,10 +56,12 @@ public class Question {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
+    @JsonIgnoreProperties({"assignedSubjects", "hibernateLazyInitializer", "handler"})
     private User createdBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
+    @JsonIgnoreProperties({"assignedSubjects", "hibernateLazyInitializer", "handler"})
     private User reviewedBy;
 
     @CreationTimestamp

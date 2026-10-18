@@ -24,3 +24,8 @@ desktop.ini
 
 # Logs
 *.log
+
+# Local credentials and Windows auth tools stay on this machine.
+/config.local.properties
+/config.local.properties.*
+/.tools/
