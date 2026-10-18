@@ -15,6 +15,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -65,6 +67,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UserResponse mapToUserResponse(User user) {
+        List<Integer> subIds = (user.getAssignedSubjects() != null)
+                ? user.getAssignedSubjects().stream().map(com.aives.model.entity.Subject::getId).toList()
+                : java.util.List.of();
+
         return UserResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -74,6 +80,7 @@ public class AuthServiceImpl implements AuthService {
                 .studentCode(user.getStudentCode())
                 .active(user.isActive())
                 .createdAt(user.getCreatedAt())
+                .assignedSubjectIds(subIds)
                 .build();
     }
 }

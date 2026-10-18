@@ -4,6 +4,7 @@ import com.aives.model.enums.Role;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -20,4 +21,5 @@ public class UserResponse {
     private String studentCode;
     private boolean active;
     private LocalDateTime createdAt;
+    private List<Integer> assignedSubjectIds;
 }
