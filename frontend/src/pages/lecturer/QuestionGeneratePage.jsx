@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { questionApi } from '../../api/questionApi';
-import { subjectApi } from '../../api/subjectApi';
+import GenerationSuccessDialog from '../../components/GenerationSuccessDialog';
 import { 
   BrainCircuit, 
   Sparkles, 
   ArrowLeft, 
-  CheckCircle2, 
   AlertCircle, 
-  Loader2, 
-  ArrowRight,
-  Layers
+  Loader2
 } from 'lucide-react';
 
 const BLOOM_OPTIONS = [
@@ -23,7 +20,9 @@ const BLOOM_OPTIONS = [
 ];
 
 export default function QuestionGeneratePage() {
-  const navigate = useNavigate();
+  const submitting = useRef(false);
+  const errorNoticeRef = useRef(null);
+  const submitButtonRef = useRef(null);
   const [subjects, setSubjects] = useState([]);
   const [subjectId, setSubjectId] = useState('');
   const [topic, setTopic] = useState('');
@@ -31,14 +30,28 @@ export default function QuestionGeneratePage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [generatedResult, setGeneratedResult] = useState(null);
+  const [materialFile, setMaterialFile] = useState(null);
+  const [allowAiTransfer, setAllowAiTransfer] = useState(false);
 
   useEffect(() => {
-    subjectApi.getAll().then((res) => {
+    if (errorMsg && errorNoticeRef.current) {
+      errorNoticeRef.current.focus({ preventScroll: true });
+      errorNoticeRef.current.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    }
+  }, [errorMsg]);
+
+  useEffect(() => {
+    let current = true;
+    questionApi.getGenerationSubjects().then((res) => {
+      if (!current) return;
       if (res.success && res.data.length > 0) {
         setSubjects(res.data);
         setSubjectId(res.data[0].id);
       }
+    }).catch((err) => {
+      if (current) setErrorMsg(err.response?.data?.message || 'Không tải được môn học được phân công. Kiểm tra backend.');
     });
+    return () => { current = false; };
   }, []);
 
   const toggleLevel = (val) => {
@@ -49,6 +62,7 @@ export default function QuestionGeneratePage() {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
+    if (submitting.current || generatedResult) return;
     setErrorMsg('');
     setGeneratedResult(null);
 
@@ -64,21 +78,36 @@ export default function QuestionGeneratePage() {
       setErrorMsg('Vui lòng chọn ít nhất một mức nhận thức Bloom.');
       return;
     }
+    if (!materialFile || materialFile.size > 10 * 1024 * 1024 || !/\.(pdf|docx|txt)$/i.test(materialFile.name)) {
+      setErrorMsg('Chọn tệp PDF/DOCX/TXT tối đa 10 MB.');
+      return;
+    }
+    if (!allowAiTransfer) {
+      setErrorMsg('Cần đồng ý gửi văn bản học liệu đến Google Gemini.');
+      return;
+    }
 
+    submitting.current = true;
     setLoading(true);
     try {
-      const payload = {
-        subjectId: parseInt(subjectId, 10),
-        topic: topic.trim(),
-        levels: selectedLevels,
-      };
-      const res = await questionApi.generate(payload);
-      if (res.success && res.data) {
+      const payload = new FormData();
+      payload.append('subjectId', subjectId);
+      payload.append('topic', topic.trim());
+      selectedLevels.forEach((level) => payload.append('levels', level));
+      payload.append('materialFile', materialFile);
+      payload.append('allowAiTransfer', 'true');
+      const res = await questionApi.generateFromMaterial(payload, crypto.randomUUID());
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         setGeneratedResult(res.data);
+      } else {
+        setErrorMsg(res.message || 'Chưa nhận được danh sách câu hỏi. Kiểm tra danh sách trước khi tạo lại.');
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || err.message || 'Lỗi khi AI sinh câu hỏi');
+      setErrorMsg(err.code === 'ECONNABORTED'
+        ? 'Hết thời gian chờ. Kiểm tra danh sách câu hỏi trước khi tạo lại: backend có thể vẫn đang xử lý. Không bấm liên tục.'
+        : err.response?.data?.message || err.message || 'Lỗi khi gọi Gemini, chưa nhận được kết quả.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -101,63 +130,35 @@ export default function QuestionGeneratePage() {
       <div>
         <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
           <BrainCircuit className="w-4 h-4" />
-          AI Generator · RAG Template Engine
+          AI Generator · Google Gemini · Học liệu
         </div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Sinh câu hỏi tự động bằng AI</h1>
         <p className="text-sm text-slate-400">
-          Chỉ định môn học, chủ đề kiến thức và các mức thang đo Bloom. AI sẽ tự động sinh các câu hỏi và chuyển vào danh sách chờ duyệt.
+          Tải học liệu, chọn chủ đề và mức Bloom. Gemini sinh câu hỏi, đáp án tham khảo và rubric 10 điểm, lưu ở trạng thái chờ duyệt. Mỗi mức được chọn tạo một câu.
         </p>
       </div>
 
-      {errorMsg && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center gap-2.5">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      {/* Generated Result Notice */}
+      {/* The native modal stays in the viewport even when the form is scrolled. */}
       {generatedResult && (
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-slate-900 border border-emerald-500/30 space-y-4">
-          <div className="flex items-center gap-2.5 text-emerald-400">
-            <CheckCircle2 className="w-6 h-6" />
-            <h3 className="font-bold text-base text-white">
-              Đã sinh thành công {generatedResult.length} câu hỏi mới!
-            </h3>
-          </div>
-          <p className="text-sm text-slate-300">
-            Các câu hỏi đã được lưu vào hệ thống ở trạng thái <strong className="text-amber-400">Chờ duyệt (PENDING_REVIEW)</strong>. Bạn có thể duyệt từng câu hoặc duyệt hàng loạt ngay bây giờ.
-          </p>
-          <div className="flex gap-3 pt-2">
-            <Link
-              to="/lecturer/questions?status=PENDING_REVIEW"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition-all"
-            >
-              Mở giao diện Duyệt AI ngay
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <button
-              onClick={() => setGeneratedResult(null)}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-sm font-semibold transition-colors cursor-pointer"
-            >
-              Sinh tiếp câu khác
-            </button>
-          </div>
-        </div>
+        <GenerationSuccessDialog questions={generatedResult} onDismiss={() => setGeneratedResult(null)} returnFocusRef={submitButtonRef} />
       )}
 
       {/* Form */}
-      <form onSubmit={handleGenerate} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+      <form onSubmit={handleGenerate} aria-busy={loading} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+        <fieldset disabled={loading} className="space-y-6 disabled:opacity-70">
         
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">
+          <label htmlFor="generation-subject" className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">
             1. Chọn môn học mục tiêu
           </label>
           <select
+            id="generation-subject"
+            required
             value={subjectId}
             onChange={(e) => setSubjectId(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm"
           >
+            {subjects.length === 0 && <option value="">Chưa có môn học được phân công</option>}
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.code} - {s.name}
@@ -167,10 +168,12 @@ export default function QuestionGeneratePage() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">
+          <label htmlFor="generation-topic" className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">
             2. Chủ đề kiến thức / Khái niệm kỹ thuật
           </label>
           <input
+            id="generation-topic"
+            maxLength={200}
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -184,6 +187,14 @@ export default function QuestionGeneratePage() {
         </div>
 
         <div>
+          <label htmlFor="generation-material" className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Học liệu PDF, DOCX hoặc TXT UTF-8</label>
+          <input id="generation-material" type="file" accept=".pdf,.docx,.txt" required
+            onChange={(e) => setMaterialFile(e.target.files[0] || null)}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm" />
+          <p className="mt-2 text-xs text-slate-400">Tối đa 10 MB / 100.000 ký tự; PDF tối đa 100 trang. PDF scan cần OCR trước. Tệp không được lưu vào kho học liệu.</p>
+        </div>
+
+        <div>
           <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">
             3. Chọn các mức nhận thức Bloom muốn AI sinh (Chọn nhiều)
           </label>
@@ -191,9 +202,8 @@ export default function QuestionGeneratePage() {
             {BLOOM_OPTIONS.map((b) => {
               const isChecked = selectedLevels.includes(b.value);
               return (
-                <div
+                <label
                   key={b.value}
-                  onClick={() => toggleLevel(b.value)}
                   className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
                     isChecked
                       ? 'bg-indigo-600/10 border-indigo-500/50 text-white'
@@ -203,39 +213,53 @@ export default function QuestionGeneratePage() {
                   <input
                     type="checkbox"
                     checked={isChecked}
-                    onChange={() => {}}
-                    className="mt-1 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 pointer-events-none"
+                    onChange={() => toggleLevel(b.value)}
+                    className="mt-1 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <div>
+                  <span>
                     <span className="font-semibold text-sm block leading-tight">{b.label}</span>
                     <span className="text-xs text-slate-400 block mt-0.5">{b.desc}</span>
-                  </div>
-                </div>
+                  </span>
+                </label>
               );
             })}
           </div>
         </div>
 
+        <label className="flex items-start gap-3 text-sm text-slate-300">
+          <input type="checkbox" required checked={allowAiTransfer} onChange={(e) => setAllowAiTransfer(e.target.checked)} className="mt-1" />
+          <span>Tôi có quyền sử dụng học liệu và đồng ý gửi văn bản trích xuất đến Google Gemini. Không tải dữ liệu cá nhân/bí mật. API có thể tiêu thụ quota hoặc phát sinh phí.</span>
+        </label>
+
+        {errorMsg && (
+          <div ref={errorNoticeRef} role="alert" tabIndex={-1}
+            className="flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300 focus:outline-none">
+            <AlertCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-rose-400" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         <div className="pt-4 border-t border-slate-800 flex justify-end">
           <button
+            ref={submitButtonRef}
             type="submit"
-            disabled={loading}
+            disabled={loading || subjects.length === 0 || Boolean(generatedResult)}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
-              <>
+              <span role="status" className="inline-flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                AI đang tạo câu hỏi...
-              </>
+                Gemini đang tạo câu hỏi, đáp án và rubric...
+              </span>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-slate-950" />
-                Bắt đầu sinh câu hỏi ({selectedLevels.length} mức)
+                Sinh {selectedLevels.length} câu bằng Gemini
               </>
             )}
           </button>
         </div>
-
+        </fieldset>
       </form>
 
     </div>

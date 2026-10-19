@@ -1,0 +1,4 @@
+TCP và UDP là hai giao thức của tầng giao vận.
+TCP cung cấp luồng dữ liệu tin cậy và đúng thứ tự. TCP sử dụng số thứ tự, xác nhận và truyền lại dữ liệu bị mất. TCP có điều khiển luồng và điều khiển tắc nghẽn. Khi cần độ tin cậy và thứ tự, ứng dụng có thể lựa chọn TCP, nhưng phải chấp nhận chi phí quản lý kết nối và việc chờ truyền lại.
+UDP gửi các datagram độc lập mà không tự bảo đảm việc dữ liệu đến nơi hoặc đúng thứ tự. Ứng dụng cần tự xử lý các yêu cầu về độ tin cậy nếu sử dụng UDP. Các ứng dụng thời gian thực có thể ưu tiên nhận dữ liệu mới kịp thời hơn việc chờ dữ liệu cũ bị mất được truyền lại.
+Việc lựa chọn phụ thuộc vào yêu cầu của ứng dụng: không có giao thức nào tốt hơn trong mọi trường hợp. Khi phân tích một tình huống, cần xem xét độ tin cậy, độ trễ, thứ tự dữ liệu và cách ứng dụng xử lý mất gói.

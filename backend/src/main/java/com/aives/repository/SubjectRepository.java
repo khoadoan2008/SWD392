@@ -18,6 +18,6 @@ public interface SubjectRepository extends JpaRepository<Subject, Integer> {
 
     List<Subject> findByActiveTrueOrderByCodeAsc();
 
-    @Query("SELECT s FROM Subject s JOIN User u JOIN u.assignedSubjects sub WHERE u.id = :lecturerId AND sub.id = s.id ORDER BY s.code ASC")
+    @Query("SELECT s FROM User u JOIN u.assignedSubjects s WHERE u.id = :lecturerId ORDER BY s.code ASC")
     List<Subject> findByLecturerId(@Param("lecturerId") Integer lecturerId);
 }

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { subjectApi } from '../../api/subjectApi';
 import { questionApi } from '../../api/questionApi';
 import { rubricApi } from '../../api/rubricApi';
 import { 
@@ -32,7 +31,7 @@ export default function RubricsPage() {
   const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
-    subjectApi.getAll().then((res) => {
+    questionApi.getGenerationSubjects().then((res) => {
       if (res.success && res.data.length > 0) {
         setSubjects(res.data);
         setSelectedSubjectId(res.data[0].id);

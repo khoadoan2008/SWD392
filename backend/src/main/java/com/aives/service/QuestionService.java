@@ -5,15 +5,18 @@ import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
 import com.aives.model.enums.BloomLevel;
 import com.aives.model.enums.QuestionStatus;
+import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.Role;
 import com.aives.repository.QuestionRepository;
 import com.aives.repository.RubricRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +30,8 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public List<Question> searchQuestions(User currentUser, Integer subjectId, QuestionStatus status, BloomLevel bloom, String kw) {
         List<Integer> allowedSubjectIds = getAllowedSubjectIds(currentUser);
-        return questionRepository.search(allowedSubjectIds, subjectId, status, bloom, kw);
+        return questionRepository.search(allowedSubjectIds, subjectId, status, bloom, kw).stream()
+                .map(this::prepareResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +58,7 @@ public class QuestionService {
         Question q = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + id));
         checkSubjectPermission(currentUser, q.getSubject().getId());
-        return q;
+        return prepareResponse(q);
     }
 
     @Transactional
@@ -81,7 +85,7 @@ public class QuestionService {
             question.setCreatedAt(existing.getCreatedAt());
         }
 
-        return questionRepository.save(question);
+        return prepareResponse(questionRepository.save(question));
     }
 
     @Transactional
@@ -94,6 +98,12 @@ public class QuestionService {
             if (rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).isEmpty()) {
                 throw new IllegalArgumentException("Cần có ít nhất 1 tiêu chí Rubric trước khi duyệt câu hỏi.");
             }
+            if (q.getSource() == QuestionSource.AI) {
+                BigDecimal total = rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).stream()
+                    .map(r -> r.getMaxScore()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (total.compareTo(BigDecimal.TEN) != 0)
+                    throw new IllegalArgumentException("Rubric câu hỏi AI cần có tổng 10 điểm trước khi duyệt.");
+            }
             q.setReviewedBy(reviewer);
         } else if (newStatus == QuestionStatus.DRAFT) {
             q.setReviewedBy(null);
@@ -102,7 +112,7 @@ public class QuestionService {
         }
 
         q.setStatus(newStatus);
-        return questionRepository.save(q);
+        return prepareResponse(questionRepository.save(q));
     }
 
     @Transactional
@@ -130,7 +140,16 @@ public class QuestionService {
         for (Question q : generated) {
             q.setCreatedBy(currentUser);
         }
-        return questionRepository.saveAll(generated);
+        return questionRepository.saveAll(generated).stream().map(this::prepareResponse).toList();
+    }
+
+    // The controller serializes after this transaction ends (open-in-view=false).
+    // Load only the relationships in the existing question response contract.
+    private Question prepareResponse(Question question) {
+        Hibernate.initialize(question.getCreatedBy());
+        Hibernate.initialize(question.getReviewedBy());
+        Hibernate.initialize(question.getRubrics());
+        return question;
     }
 
     public List<Integer> getAllowedSubjectIds(User user) {
@@ -138,11 +157,8 @@ public class QuestionService {
             return null; // Admin has access to all
         }
         List<Integer> ids = new ArrayList<>();
-        if (user.getAssignedSubjects() != null) {
-            for (Subject s : user.getAssignedSubjects()) {
-                ids.add(s.getId());
-            }
-        }
+        // The JWT principal is detached: query current assignments, not its lazy collection.
+        for (Subject s : subjectRepository.findByLecturerId(user.getId())) ids.add(s.getId());
         return ids.isEmpty() ? List.of(-1) : ids; // If no subjects assigned, return dummy id
     }
 

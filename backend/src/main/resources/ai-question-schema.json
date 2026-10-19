@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["questions"],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["content", "referenceAnswer", "bloomLevel", "rubrics"],
+        "properties": {
+          "content": {"type": "string"},
+          "referenceAnswer": {"type": "string"},
+          "bloomLevel": {"type": "string", "enum": ["REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE"]},
+          "rubrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["criterion", "maxScore", "keywords"],
+              "properties": {
+                "criterion": {"type": "string"},
+                "maxScore": {"type": "number"},
+                "keywords": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
