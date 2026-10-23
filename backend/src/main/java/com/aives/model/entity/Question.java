@@ -3,7 +3,6 @@ package com.aives.model.entity;
 import com.aives.model.enums.BloomLevel;
 import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.QuestionStatus;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -72,9 +71,9 @@ public class Question {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @OrderBy("sortOrder ASC, id ASC")
-    @JsonManagedReference
+    // Transient in-memory storage for AI parsing and generation workflows.
+    // In database, rubrics are associated directly with Subject.
+    @Transient
     @Builder.Default
     private List<Rubric> rubrics = new ArrayList<>();
 }

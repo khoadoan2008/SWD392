@@ -1,8 +1,7 @@
 package com.aives.controller;
 
 import com.aives.dto.response.ApiResponse;
-import com.aives.model.entity.InterviewSession;
-import com.aives.model.entity.User;
+import com.aives.dto.response.InterviewSessionResponse;
 import com.aives.security.UserPrincipal;
 import com.aives.service.InterviewService;
 import lombok.RequiredArgsConstructor;
@@ -23,32 +22,29 @@ public class LecturerSessionController {
     private final InterviewService interviewService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<InterviewSession>>> searchSessions(
+    public ResponseEntity<ApiResponse<List<InterviewSessionResponse>>> searchSessions(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) Integer subjectId) {
-        User user = principal.getUser();
-        return ResponseEntity.ok(ApiResponse.success(interviewService.searchSessions(user, subjectId)));
+        return ResponseEntity.ok(ApiResponse.success(interviewService.searchSessions(principal.getUser(), subjectId)));
     }
 
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<Map<String, Long>>> countStats(
             @AuthenticationPrincipal UserPrincipal principal) {
-        User user = principal.getUser();
-        return ResponseEntity.ok(ApiResponse.success(interviewService.countSessionStats(user)));
+        return ResponseEntity.ok(ApiResponse.success(interviewService.countSessionStats(principal.getUser())));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<InterviewSession>> getSessionDetail(
+    public ResponseEntity<ApiResponse<InterviewSessionResponse>> getSessionDetail(
             @PathVariable Integer id) {
-        return ResponseEntity.ok(ApiResponse.success(interviewService.getSessionById(id)));
+        return ResponseEntity.ok(ApiResponse.success(interviewService.getSessionDetail(id)));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteSession(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Integer id) {
-        User user = principal.getUser();
-        interviewService.deleteSession(id, user);
+        interviewService.deleteSession(id, principal.getUser());
         return ResponseEntity.ok(ApiResponse.successMsg("Đã xoá lượt thi thành công"));
     }
 }

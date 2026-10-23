@@ -1,5 +1,9 @@
 package com.aives.service;
 
+import com.aives.dto.response.InterviewSessionResponse;
+import com.aives.dto.response.InterviewTurnDataResponse;
+import com.aives.dto.response.StudentHomeResponse;
+import com.aives.dto.response.SubjectResponse;
 import com.aives.model.entity.*;
 import com.aives.model.enums.QuestionStatus;
 import com.aives.model.enums.Role;
@@ -28,7 +32,7 @@ public class InterviewService {
     private final FollowUpGenerator followUpGenerator;
 
     @Transactional
-    public InterviewSession startSession(User student, Integer subjectId) {
+    public InterviewSessionResponse startSession(User student, Integer subjectId) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
 
@@ -36,7 +40,7 @@ public class InterviewService {
         Optional<InterviewSession> existing = sessionRepository
                 .findFirstByStudentIdAndSubjectIdAndStatusOrderByIdDesc(student.getId(), subjectId, SessionStatus.IN_PROGRESS);
         if (existing.isPresent()) {
-            return existing.get();
+            return InterviewSessionResponse.of(existing.get());
         }
 
         int mainCount = configService.getIntConfig(SystemConfig.MAIN_QUESTIONS, 3);
@@ -75,18 +79,19 @@ public class InterviewService {
         turnRepository.saveAll(turns);
 
         session.setTurns(turns);
-        return session;
+        return InterviewSessionResponse.of(session);
     }
 
     @Transactional
-    public Map<String, Object> getCurrentTurnData(Integer sessionId, User student) {
+    public InterviewTurnDataResponse getCurrentTurnData(Integer sessionId, User student) {
         InterviewSession session = getSessionById(sessionId);
         if (!session.getStudent().getId().equals(student.getId()) && student.getRole() != Role.ADMIN) {
             throw new SecurityException("Bạn không có quyền truy cập lượt thi này.");
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("session", session);
+        InterviewSessionResponse.TurnSummary currentTurnDto = null;
+        InterviewSessionResponse.TurnSummary prevTurnDto = null;
+        Long remaining = null;
 
         if (session.getStatus() == SessionStatus.IN_PROGRESS) {
             Optional<InterviewTurn> currentOpt = turnRepository.findCurrentTurn(sessionId);
@@ -97,10 +102,8 @@ public class InterviewService {
                     current = turnRepository.save(current);
                 }
                 long elapsed = Duration.between(current.getAskedAt(), LocalDateTime.now()).getSeconds();
-                long remaining = Math.max(0, session.getAnswerTimeLimitSec() - elapsed);
-
-                result.put("currentTurn", current);
-                result.put("remainingSec", remaining);
+                remaining = Math.max(0, session.getAnswerTimeLimitSec() - elapsed);
+                currentTurnDto = InterviewSessionResponse.TurnSummary.of(current);
 
                 if (current.isFollowUp()) {
                     List<InterviewTurn> allTurns = turnRepository.findBySessionIdOrderByMainIndexAscFollowupIndexAsc(sessionId);
@@ -110,12 +113,18 @@ public class InterviewService {
                             prev = t;
                         }
                     }
-                    result.put("prevTurn", prev);
+                    prevTurnDto = InterviewSessionResponse.TurnSummary.of(prev);
                 }
             }
         }
-        result.put("speechLang", configService.getConfig(SystemConfig.SPEECH_LANGUAGE, "vi-VN"));
-        return result;
+        String speechLang = configService.getConfig(SystemConfig.SPEECH_LANGUAGE, "vi-VN");
+        return new InterviewTurnDataResponse(
+                InterviewSessionResponse.of(session),
+                currentTurnDto,
+                prevTurnDto,
+                remaining,
+                speechLang
+        );
     }
 
     @Transactional
@@ -158,8 +167,8 @@ public class InterviewService {
             }
 
             if (mainTurn != null) {
-                List<Rubric> rubrics = (mainTurn.getQuestion() != null)
-                        ? rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(mainTurn.getQuestion().getId())
+                List<Rubric> rubrics = (session.getSubject() != null)
+                        ? rubricRepository.findBySubjectIdOrderBySortOrderAscIdAsc(session.getSubject().getId())
                         : Collections.emptyList();
 
                 String followUpText = followUpGenerator.generate(mainTurn.getQuestionText(), rubrics, thread);
@@ -200,15 +209,25 @@ public class InterviewService {
     }
 
     @Transactional(readOnly = true)
-    public List<InterviewSession> getStudentHistory(Integer studentId) {
-        return sessionRepository.findByStudentIdOrderByIdDesc(studentId);
+    public StudentHomeResponse getStudentHomeData(User student) {
+        List<SubjectResponse> activeSubjects = subjectRepository.findByActiveTrueOrderByCodeAsc().stream()
+                .map(SubjectResponse::of).toList();
+        List<InterviewSessionResponse> history = getStudentHistory(student.getId());
+        return new StudentHomeResponse(activeSubjects, history);
     }
 
     @Transactional(readOnly = true)
-    public List<InterviewSession> searchSessions(User currentUser, Integer subjectId) {
+    public List<InterviewSessionResponse> getStudentHistory(Integer studentId) {
+        return sessionRepository.findByStudentIdOrderByIdDesc(studentId).stream()
+                .map(InterviewSessionResponse::of).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<InterviewSessionResponse> searchSessions(User currentUser, Integer subjectId) {
         List<Integer> allowedSubjects = (currentUser.getRole() == Role.ADMIN) ? null :
                 currentUser.getAssignedSubjects().stream().map(Subject::getId).toList();
-        return sessionRepository.search(null, allowedSubjects, subjectId);
+        return sessionRepository.search(null, allowedSubjects, subjectId).stream()
+                .map(InterviewSessionResponse::of).toList();
     }
 
     @Transactional(readOnly = true)
@@ -230,6 +249,11 @@ public class InterviewService {
         }
         stats.put("TOTAL", total);
         return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public InterviewSessionResponse getSessionDetail(Integer sessionId) {
+        return InterviewSessionResponse.of(getSessionById(sessionId));
     }
 
     @Transactional(readOnly = true)

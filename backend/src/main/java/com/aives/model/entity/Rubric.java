@@ -20,9 +20,9 @@ public class Rubric {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "question_id", nullable = false)
+    @JoinColumn(name = "subject_id", nullable = false)
     @JsonBackReference
-    private Question question;
+    private Subject subject;
 
     @Column(nullable = false, length = 500)
     private String criterion;

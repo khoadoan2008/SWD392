@@ -1,5 +1,7 @@
 package com.aives.service;
 
+import com.aives.dto.request.QuestionRequest;
+import com.aives.dto.response.QuestionResponse;
 import com.aives.model.entity.Question;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
@@ -11,7 +13,6 @@ import com.aives.repository.QuestionRepository;
 import com.aives.repository.RubricRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
-import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +29,10 @@ public class QuestionService {
     private final QuestionGenerator questionGenerator;
 
     @Transactional(readOnly = true)
-    public List<Question> searchQuestions(User currentUser, Integer subjectId, QuestionStatus status, BloomLevel bloom, String kw) {
+    public List<QuestionResponse> searchQuestions(User currentUser, Integer subjectId, QuestionStatus status, BloomLevel bloom, String kw) {
         List<Integer> allowedSubjectIds = getAllowedSubjectIds(currentUser);
         return questionRepository.search(allowedSubjectIds, subjectId, status, bloom, kw).stream()
-                .map(this::prepareResponse).toList();
+                .map(QuestionResponse::of).toList();
     }
 
     @Transactional(readOnly = true)
@@ -54,55 +55,86 @@ public class QuestionService {
     }
 
     @Transactional(readOnly = true)
-    public Question getQuestionById(Integer id, User currentUser) {
+    public QuestionResponse getQuestionById(Integer id, User currentUser) {
         Question q = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + id));
         checkSubjectPermission(currentUser, q.getSubject().getId());
-        return prepareResponse(q);
+        return QuestionResponse.of(q);
     }
 
     @Transactional
-    public Question saveQuestion(Question question, User currentUser) {
-        checkSubjectPermission(currentUser, question.getSubject().getId());
-
-        if (question.getContent() == null || question.getContent().trim().isEmpty()) {
+    public QuestionResponse createQuestion(QuestionRequest request, User currentUser) {
+        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
             throw new IllegalArgumentException("Nội dung câu hỏi không được để trống.");
         }
-        if (question.getBloomLevel() == null) {
+        if (request.getBloomLevel() == null) {
             throw new IllegalArgumentException("Vui lòng chọn mức độ nhận thức Bloom.");
         }
 
-        if (question.getId() == null) {
-            question.setCreatedBy(currentUser);
-            if (question.getStatus() == null) {
-                question.setStatus(QuestionStatus.DRAFT);
-            }
-        } else {
-            Question existing = questionRepository.findById(question.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + question.getId()));
-            question.setCreatedBy(existing.getCreatedBy());
-            question.setReviewedBy(existing.getReviewedBy());
-            question.setCreatedAt(existing.getCreatedAt());
-        }
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + request.getSubjectId()));
+        checkSubjectPermission(currentUser, subject.getId());
 
-        return prepareResponse(questionRepository.save(question));
+        Question q = Question.builder()
+                .subject(subject)
+                .topic(request.getTopic())
+                .content(request.getContent().trim())
+                .referenceAnswer(request.getReferenceAnswer())
+                .bloomLevel(request.getBloomLevel())
+                .status(request.getStatus() != null ? request.getStatus() : QuestionStatus.DRAFT)
+                .source(QuestionSource.MANUAL)
+                .createdBy(currentUser)
+                .build();
+
+        return QuestionResponse.of(questionRepository.save(q));
     }
 
     @Transactional
-    public Question updateStatus(Integer id, QuestionStatus newStatus, User reviewer) {
+    public QuestionResponse updateQuestion(Integer id, QuestionRequest request, User currentUser) {
+        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
+            throw new IllegalArgumentException("Nội dung câu hỏi không được để trống.");
+        }
+        if (request.getBloomLevel() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn mức độ nhận thức Bloom.");
+        }
+
+        Question q = questionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + id));
+        checkSubjectPermission(currentUser, q.getSubject().getId());
+
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + request.getSubjectId()));
+        checkSubjectPermission(currentUser, subject.getId());
+
+        q.setSubject(subject);
+        q.setTopic(request.getTopic());
+        q.setContent(request.getContent().trim());
+        q.setReferenceAnswer(request.getReferenceAnswer());
+        q.setBloomLevel(request.getBloomLevel());
+        if (request.getStatus() != null) {
+            q.setStatus(request.getStatus());
+        }
+
+        return QuestionResponse.of(questionRepository.save(q));
+    }
+
+    @Transactional
+    public QuestionResponse updateStatus(Integer id, QuestionStatus newStatus, User reviewer) {
         Question q = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi ID: " + id));
         checkSubjectPermission(reviewer, q.getSubject().getId());
 
         if (newStatus == QuestionStatus.APPROVED) {
-            if (rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).isEmpty()) {
-                throw new IllegalArgumentException("Cần có ít nhất 1 tiêu chí Rubric trước khi duyệt câu hỏi.");
+            Integer subjectId = q.getSubject().getId();
+            List<com.aives.model.entity.Rubric> rubrics = rubricRepository.findBySubjectIdOrderBySortOrderAscIdAsc(subjectId);
+            if (rubrics.isEmpty()) {
+                throw new IllegalArgumentException("Cần có ít nhất 1 tiêu chí Rubric cho môn học trước khi duyệt câu hỏi.");
             }
             if (q.getSource() == QuestionSource.AI) {
-                BigDecimal total = rubricRepository.findByQuestionIdOrderBySortOrderAscIdAsc(id).stream()
-                    .map(r -> r.getMaxScore()).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal total = rubrics.stream()
+                    .map(com.aives.model.entity.Rubric::getMaxScore).reduce(BigDecimal.ZERO, BigDecimal::add);
                 if (total.compareTo(BigDecimal.TEN) != 0)
-                    throw new IllegalArgumentException("Rubric câu hỏi AI cần có tổng 10 điểm trước khi duyệt.");
+                    throw new IllegalArgumentException("Rubric môn học cho câu hỏi AI cần có tổng 10 điểm trước khi duyệt.");
             }
             q.setReviewedBy(reviewer);
         } else if (newStatus == QuestionStatus.DRAFT) {
@@ -112,7 +144,7 @@ public class QuestionService {
         }
 
         q.setStatus(newStatus);
-        return prepareResponse(questionRepository.save(q));
+        return QuestionResponse.of(questionRepository.save(q));
     }
 
     @Transactional
@@ -124,7 +156,7 @@ public class QuestionService {
     }
 
     @Transactional
-    public List<Question> generateAiQuestions(Integer subjectId, String topic, List<BloomLevel> levels, User currentUser) {
+    public List<QuestionResponse> generateAiQuestions(Integer subjectId, String topic, List<BloomLevel> levels, User currentUser) {
         checkSubjectPermission(currentUser, subjectId);
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
@@ -140,16 +172,7 @@ public class QuestionService {
         for (Question q : generated) {
             q.setCreatedBy(currentUser);
         }
-        return questionRepository.saveAll(generated).stream().map(this::prepareResponse).toList();
-    }
-
-    // The controller serializes after this transaction ends (open-in-view=false).
-    // Load only the relationships in the existing question response contract.
-    private Question prepareResponse(Question question) {
-        Hibernate.initialize(question.getCreatedBy());
-        Hibernate.initialize(question.getReviewedBy());
-        Hibernate.initialize(question.getRubrics());
-        return question;
+        return questionRepository.saveAll(generated).stream().map(QuestionResponse::of).toList();
     }
 
     public List<Integer> getAllowedSubjectIds(User user) {

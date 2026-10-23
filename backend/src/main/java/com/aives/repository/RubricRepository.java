@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface RubricRepository extends JpaRepository<Rubric, Integer> {
 
-    List<Rubric> findByQuestionIdOrderBySortOrderAscIdAsc(Integer questionId);
+    List<Rubric> findBySubjectIdOrderBySortOrderAscIdAsc(Integer subjectId);
 
-    void deleteByQuestionId(Integer questionId);
+    void deleteBySubjectId(Integer subjectId);
 }
