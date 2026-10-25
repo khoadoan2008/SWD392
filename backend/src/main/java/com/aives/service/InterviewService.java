@@ -1,9 +1,11 @@
 package com.aives.service;
 
+import com.aives.dto.request.GradeSessionRequest;
 import com.aives.dto.response.InterviewSessionResponse;
 import com.aives.dto.response.InterviewTurnDataResponse;
 import com.aives.dto.response.StudentHomeResponse;
 import com.aives.dto.response.SubjectResponse;
+import com.aives.exception.GradingException;
 import com.aives.model.entity.*;
 import com.aives.model.enums.QuestionStatus;
 import com.aives.model.enums.Role;
@@ -12,9 +14,11 @@ import com.aives.model.enums.TurnType;
 import com.aives.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,6 +34,9 @@ public class InterviewService {
     private final SubjectRepository subjectRepository;
     private final SystemConfigService configService;
     private final FollowUpGenerator followUpGenerator;
+    private final AiGradingService aiGradingService;
+    private final SessionRubricScoreRepository sessionRubricScoreRepository;
+    private final AiGradingTrigger aiGradingTrigger;
 
     @Transactional
     public InterviewSessionResponse startSession(User student, Integer subjectId) {
@@ -115,6 +122,11 @@ public class InterviewService {
                     }
                     prevTurnDto = InterviewSessionResponse.TurnSummary.of(prev);
                 }
+            } else {
+                session.setStatus(SessionStatus.COMPLETED);
+                session.setEndedAt(LocalDateTime.now());
+                session = sessionRepository.save(session);
+                aiGradingTrigger.gradeAfterCommit(session.getId());
             }
         }
         String speechLang = configService.getConfig(SystemConfig.SPEECH_LANGUAGE, "vi-VN");
@@ -138,15 +150,17 @@ public class InterviewService {
         }
 
         InterviewTurn current = turnRepository.findById(turnId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lượt hỏi ID: " + turnId));
-
-        if (!current.getSession().getId().equals(sessionId) || current.getAnsweredAt() != null) {
-            return; // Duplicate submission or wrong session
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lượt câu hỏi ID: " + turnId));
+        if (!current.getSession().getId().equals(sessionId)) {
+            throw new IllegalArgumentException("Lượt câu hỏi không thuộc về phiên thi này.");
+        }
+        if (current.getAnsweredAt() != null) {
+            return;
         }
 
         LocalDateTime now = LocalDateTime.now();
+        current.setTranscript(transcript);
         current.setAnsweredAt(now);
-        current.setTranscript(transcript == null ? "" : transcript.trim());
         if (current.getAskedAt() != null) {
             current.setResponseTimeSec((int) Duration.between(current.getAskedAt(), now).getSeconds());
         }
@@ -191,7 +205,8 @@ public class InterviewService {
         if (turnRepository.findCurrentTurn(sessionId).isEmpty()) {
             session.setStatus(SessionStatus.COMPLETED);
             session.setEndedAt(LocalDateTime.now());
-            sessionRepository.save(session);
+            session = sessionRepository.save(session);
+            aiGradingTrigger.gradeAfterCommit(session.getId());
         }
     }
 
@@ -272,5 +287,109 @@ public class InterviewService {
             }
         }
         sessionRepository.delete(session);
+    }
+
+    @Transactional
+    public InterviewSessionResponse gradeSession(Integer sessionId, GradeSessionRequest request, User lecturer) {
+        InterviewSession session = findSessionForGrading(sessionId);
+        checkLecturerPermission(session, lecturer);
+        checkGradable(session);
+        validateRubricGrades(session, request);
+
+        session.setFinalScore(request.getFinalScore());
+        session.setLecturerFeedback(request.getLecturerFeedback());
+        session.setGradedBy(lecturer);
+        session.setGradedAt(LocalDateTime.now());
+
+        if (request.getRubricGrades() != null && !request.getRubricGrades().isEmpty()) {
+            Map<Integer, SessionRubricScore> existingScores = new HashMap<>();
+            List<SessionRubricScore> currentScores = sessionRubricScoreRepository.findBySessionId(sessionId);
+            for (SessionRubricScore srs : currentScores) {
+                if (srs.getRubric() != null) {
+                    existingScores.put(srs.getRubric().getId(), srs);
+                }
+            }
+
+            for (GradeSessionRequest.RubricGradeItem item : request.getRubricGrades()) {
+                SessionRubricScore srs = existingScores.get(item.getRubricId());
+                if (srs != null) {
+                    if (item.getFinalScore() != null) {
+                        srs.setFinalScore(item.getFinalScore());
+                    }
+                    if (item.getComment() != null) {
+                        srs.setComment(item.getComment());
+                    }
+                    sessionRubricScoreRepository.save(srs);
+                } else {
+                    Rubric rubric = rubricRepository.findById(item.getRubricId()).orElse(null);
+                    if (rubric != null) {
+                        SessionRubricScore newSrs = SessionRubricScore.builder()
+                                .session(session)
+                                .rubric(rubric)
+                                .aiScore(BigDecimal.ZERO)
+                                .finalScore(item.getFinalScore() != null ? item.getFinalScore() : BigDecimal.ZERO)
+                                .comment(item.getComment())
+                                .build();
+                        sessionRubricScoreRepository.save(newSrs);
+                    }
+                }
+            }
+        }
+
+        session = sessionRepository.save(session);
+        return InterviewSessionResponse.of(session);
+    }
+
+    @Transactional
+    public InterviewSessionResponse reEvaluateSession(Integer sessionId, User lecturer) {
+        InterviewSession session = findSessionForGrading(sessionId);
+        checkLecturerPermission(session, lecturer);
+        checkGradable(session);
+        session = aiGradingService.evaluateSession(session);
+        return InterviewSessionResponse.of(session);
+    }
+
+    private InterviewSession findSessionForGrading(Integer sessionId) {
+        return sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new GradingException(HttpStatus.NOT_FOUND, "Không tìm thấy lượt thi ID: " + sessionId));
+    }
+
+    private void checkLecturerPermission(InterviewSession session, User lecturer) {
+        if (lecturer.getRole() != Role.ADMIN) {
+            if (session.getSubject() != null &&
+                    lecturer.getAssignedSubjects().stream().noneMatch(s -> s.getId().equals(session.getSubject().getId()))) {
+                throw new GradingException(HttpStatus.FORBIDDEN, "Không có quyền chấm điểm lượt thi môn học này.");
+            }
+        }
+    }
+
+    /** Chỉ chấm khi sinh viên đã thi xong (hoặc kết thúc sớm) và điểm chưa bị khoá. */
+    private void checkGradable(InterviewSession session) {
+        if (session.getStatus() == SessionStatus.IN_PROGRESS) {
+            throw new GradingException(HttpStatus.CONFLICT, "Sinh viên chưa hoàn thành buổi thi, chưa thể chấm điểm.");
+        }
+        if (session.isGraded()) {
+            throw new GradingException(HttpStatus.CONFLICT,
+                    "Điểm chính thức của lượt thi này đã được khoá, không thể chỉnh sửa hay yêu cầu AI chấm lại.");
+        }
+    }
+
+    /** Mỗi tiêu chí phải thuộc rubric của môn thi và điểm không vượt quá điểm tối đa của tiêu chí. */
+    private void validateRubricGrades(InterviewSession session, GradeSessionRequest request) {
+        if (request.getRubricGrades() == null) {
+            return;
+        }
+        Integer subjectId = session.getSubject() != null ? session.getSubject().getId() : null;
+        for (GradeSessionRequest.RubricGradeItem item : request.getRubricGrades()) {
+            Rubric rubric = rubricRepository.findById(item.getRubricId())
+                    .orElseThrow(() -> new GradingException(HttpStatus.BAD_REQUEST, "Không tìm thấy tiêu chí rubric ID: " + item.getRubricId()));
+            if (rubric.getSubject() == null || !Objects.equals(rubric.getSubject().getId(), subjectId)) {
+                throw new GradingException(HttpStatus.BAD_REQUEST, "Tiêu chí \"" + rubric.getCriterion() + "\" không thuộc môn học của lượt thi.");
+            }
+            if (item.getFinalScore() != null && item.getFinalScore().compareTo(rubric.getMaxScore()) > 0) {
+                throw new GradingException(HttpStatus.BAD_REQUEST, "Điểm tiêu chí \"" + rubric.getCriterion()
+                        + "\" không được vượt quá " + rubric.getMaxScore().stripTrailingZeros().toPlainString() + " điểm.");
+            }
+        }
     }
 }

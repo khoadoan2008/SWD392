@@ -1,0 +1,3 @@
+﻿Software Architecture Patterns:
+1. Layered Architecture: Organizes components into horizontal layers (Presentation, Business/Service, Persistence/Repository, Database). Benefits include separation of concerns and ease of testing. Drawbacks include performance overhead due to layers passthrough and monolithic coupling.
+2. Microservices Architecture: Structures an application as a collection of loosely coupled services. Each service is self-contained and implements a single business capability. Benefits include independent scalability and deployment, technology diversity. Drawbacks include distributed complexity, network latency, and eventual consistency challenges.

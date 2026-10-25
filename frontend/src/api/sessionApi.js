@@ -5,4 +5,6 @@ export const sessionApi = {
   getStats: () => axiosClient.get('/lecturer/sessions/stats'),
   getDetail: (id) => axiosClient.get(`/lecturer/sessions/${id}`),
   delete: (id) => axiosClient.delete(`/lecturer/sessions/${id}`),
+  grade: (id, data) => axiosClient.post(`/lecturer/sessions/${id}/grade`, data),
+  reEvaluate: (id) => axiosClient.post(`/lecturer/sessions/${id}/re-evaluate`),
 };
