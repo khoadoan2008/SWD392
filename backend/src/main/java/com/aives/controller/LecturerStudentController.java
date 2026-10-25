@@ -2,9 +2,9 @@ package com.aives.controller;
 
 import com.aives.dto.response.ApiResponse;
 import com.aives.dto.response.StudentImportResult;
-import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
 import com.aives.model.enums.Role;
+import com.aives.repository.SubjectRepository;
 import com.aives.security.UserPrincipal;
 import com.aives.service.StudentImportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +29,7 @@ import java.io.IOException;
 public class LecturerStudentController {
 
     private final StudentImportService studentImportService;
+    private final SubjectRepository subjectRepository;
 
     @Operation(summary = "Tải file Excel mẫu để import danh sách sinh viên")
     @GetMapping(value = "/import-template", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -51,8 +52,8 @@ public class LecturerStudentController {
 
         User currentUser = principal.getUser();
         if (currentUser.getRole() == Role.LECTURER && subjectId != null) {
-            boolean isAssigned = currentUser.getAssignedSubjects() != null &&
-                    currentUser.getAssignedSubjects().stream().anyMatch(s -> s.getId().equals(subjectId));
+            boolean isAssigned = subjectRepository.findByLecturerId(currentUser.getId()).stream()
+                    .anyMatch(s -> s.getId().equals(subjectId));
             if (!isAssigned) {
                 throw new AccessDeniedException("Bạn không được phân công phụ trách môn học ID: " + subjectId);
             }

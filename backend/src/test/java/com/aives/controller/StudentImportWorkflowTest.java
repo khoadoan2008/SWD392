@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Transactional
 class StudentImportWorkflowTest {
 
     @Autowired
@@ -56,7 +58,6 @@ class StudentImportWorkflowTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
 
     private User admin;
     private User lecturer1;
