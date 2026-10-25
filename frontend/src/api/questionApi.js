@@ -1,6 +1,17 @@
 import axiosClient from './axiosClient';
 
 export const questionApi = {
+  downloadImportTemplate: () => axiosClient.get('/lecturer/questions/import/template', { responseType: 'blob' }),
+  importExcel: (file, { confirm = false, status = 'PENDING_REVIEW', previewHash, onUploadProgress } = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    return axiosClient.post('/lecturer/questions/import', form, {
+      params: { confirm, status, ...(previewHash ? { previewHash } : {}) },
+      headers: { 'Content-Type': undefined },
+      onUploadProgress,
+      timeout: 60000,
+    });
+  },
   search: (params) => axiosClient.get('/lecturer/questions', { params }),
   getStats: () => axiosClient.get('/lecturer/questions/stats'),
   getById: (id) => axiosClient.get(`/lecturer/questions/${id}`),

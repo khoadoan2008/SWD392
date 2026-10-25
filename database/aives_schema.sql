@@ -59,6 +59,8 @@ CREATE TABLE questions (
     topic             VARCHAR(200),                 -- chương / chủ đề
     content           TEXT         NOT NULL,
     reference_answer  TEXT,                         -- đáp án tham khảo
+    difficulty        VARCHAR(10) DEFAULT 'MEDIUM' CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD')),
+    notes             TEXT,
     bloom_level       VARCHAR(20)  NOT NULL CHECK (bloom_level IN
                         ('REMEMBER', 'UNDERSTAND', 'APPLY', 'ANALYZE', 'EVALUATE', 'CREATE')),
     status            VARCHAR(20)  NOT NULL DEFAULT 'DRAFT' CHECK (status IN
@@ -71,10 +73,10 @@ CREATE TABLE questions (
 );
 CREATE INDEX ix_questions_subject_status ON questions(subject_id, status);
 
--- Rubric: tiêu chí + thang điểm cho từng câu hỏi
+-- Rubric dùng chung theo môn học (đồng bộ entity Rubric).
 CREATE TABLE rubrics (
     id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    question_id  INT           NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    subject_id   INT           NOT NULL REFERENCES subjects(id),
     criterion    VARCHAR(500)  NOT NULL,
     keywords     VARCHAR(500),                      -- từ khoá, phân tách bằng dấu phẩy (AI dùng để hỏi xoáy)
     max_score    NUMERIC(5,2)  NOT NULL CHECK (max_score > 0),

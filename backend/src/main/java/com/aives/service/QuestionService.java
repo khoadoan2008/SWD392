@@ -10,21 +10,19 @@ import com.aives.model.enums.QuestionStatus;
 import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.Role;
 import com.aives.repository.QuestionRepository;
-import com.aives.repository.RubricRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 public class QuestionService {
 
     private final QuestionRepository questionRepository;
-    private final RubricRepository rubricRepository;
+    private final QuestionApprovalPolicy approvalPolicy;
     private final SubjectRepository subjectRepository;
     private final QuestionGenerator questionGenerator;
 
@@ -75,15 +73,21 @@ public class QuestionService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + request.getSubjectId()));
         checkSubjectPermission(currentUser, subject.getId());
 
+        if (request.getStatus() == QuestionStatus.APPROVED)
+            approvalPolicy.requireApprovable(subject.getId(), QuestionSource.MANUAL);
+
         Question q = Question.builder()
                 .subject(subject)
                 .topic(request.getTopic())
                 .content(request.getContent().trim())
                 .referenceAnswer(request.getReferenceAnswer())
                 .bloomLevel(request.getBloomLevel())
+                .difficulty(request.getDifficulty() != null ? request.getDifficulty() : com.aives.model.enums.DifficultyLevel.MEDIUM)
+                .notes(request.getNotes())
                 .status(request.getStatus() != null ? request.getStatus() : QuestionStatus.DRAFT)
                 .source(QuestionSource.MANUAL)
                 .createdBy(currentUser)
+                .reviewedBy(request.getStatus() == QuestionStatus.APPROVED ? currentUser : null)
                 .build();
 
         return QuestionResponse.of(questionRepository.save(q));
@@ -111,6 +115,14 @@ public class QuestionService {
         q.setContent(request.getContent().trim());
         q.setReferenceAnswer(request.getReferenceAnswer());
         q.setBloomLevel(request.getBloomLevel());
+        if (request.getDifficulty() != null) q.setDifficulty(request.getDifficulty());
+        // Omitted fields from older clients must not erase imported metadata.
+        if (request.getNotes() != null) q.setNotes(request.getNotes());
+        QuestionStatus target = request.getStatus() != null ? request.getStatus() : q.getStatus();
+        if (target == QuestionStatus.APPROVED) {
+            approvalPolicy.requireApprovable(subject.getId(), q.getSource());
+            q.setReviewedBy(currentUser);
+        } else if (target == QuestionStatus.DRAFT) q.setReviewedBy(null);
         if (request.getStatus() != null) {
             q.setStatus(request.getStatus());
         }
@@ -125,17 +137,7 @@ public class QuestionService {
         checkSubjectPermission(reviewer, q.getSubject().getId());
 
         if (newStatus == QuestionStatus.APPROVED) {
-            Integer subjectId = q.getSubject().getId();
-            List<com.aives.model.entity.Rubric> rubrics = rubricRepository.findBySubjectIdOrderBySortOrderAscIdAsc(subjectId);
-            if (rubrics.isEmpty()) {
-                throw new IllegalArgumentException("Cần có ít nhất 1 tiêu chí Rubric cho môn học trước khi duyệt câu hỏi.");
-            }
-            if (q.getSource() == QuestionSource.AI) {
-                BigDecimal total = rubrics.stream()
-                    .map(com.aives.model.entity.Rubric::getMaxScore).reduce(BigDecimal.ZERO, BigDecimal::add);
-                if (total.compareTo(BigDecimal.TEN) != 0)
-                    throw new IllegalArgumentException("Rubric môn học cho câu hỏi AI cần có tổng 10 điểm trước khi duyệt.");
-            }
+            approvalPolicy.requireApprovable(q.getSubject().getId(), q.getSource());
             q.setReviewedBy(reviewer);
         } else if (newStatus == QuestionStatus.DRAFT) {
             q.setReviewedBy(null);

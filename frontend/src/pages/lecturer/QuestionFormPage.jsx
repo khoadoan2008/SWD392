@@ -35,6 +35,8 @@ export default function QuestionFormPage() {
   const [content, setContent] = useState('');
   const [referenceAnswer, setReferenceAnswer] = useState('');
   const [bloomLevel, setBloomLevel] = useState('UNDERSTAND');
+  const [difficulty, setDifficulty] = useState('MEDIUM');
+  const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('DRAFT');
 
   // Rubrics of the selected subject
@@ -66,6 +68,8 @@ export default function QuestionFormPage() {
             setContent(q.content || '');
             setReferenceAnswer(q.referenceAnswer || '');
             setBloomLevel(q.bloomLevel || 'UNDERSTAND');
+            setDifficulty(q.difficulty || 'MEDIUM');
+            setNotes(q.notes || '');
             setStatus(q.status || 'DRAFT');
           }
         })
@@ -112,6 +116,8 @@ export default function QuestionFormPage() {
         content: content.trim(),
         referenceAnswer: referenceAnswer.trim(),
         bloomLevel,
+        difficulty,
+        notes,
         status,
       };
 
@@ -266,6 +272,16 @@ export default function QuestionFormPage() {
         </div>
 
         <div className="flex justify-end pt-2">
+          <div className="mr-auto w-full max-w-xl space-y-3 pr-4">
+            <label className="block text-sm text-slate-300">Độ khó
+              <select aria-label="Độ khó" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+                <option value="EASY">Dễ (EASY)</option><option value="MEDIUM">Trung bình (MEDIUM)</option><option value="HARD">Khó (HARD)</option>
+              </select>
+            </label>
+            <label className="block text-sm text-slate-300">Ghi chú/Gợi ý (không phải đáp án)
+              <textarea aria-label="Ghi chú/Gợi ý" value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} rows={3} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" />
+            </label>
+          </div>
           <button
             type="submit"
             disabled={saveLoading}

@@ -1,6 +1,7 @@
 package com.aives.model.entity;
 
 import com.aives.model.enums.BloomLevel;
+import com.aives.model.enums.DifficultyLevel;
 import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.QuestionStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -42,6 +43,14 @@ public class Question {
     @Enumerated(EnumType.STRING)
     @Column(name = "bloom_level", nullable = false, length = 20)
     private BloomLevel bloomLevel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    @Builder.Default
+    private DifficultyLevel difficulty = DifficultyLevel.MEDIUM;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

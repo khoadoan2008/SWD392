@@ -1,6 +1,8 @@
 package com.aives.dto.request;
 
 import com.aives.model.enums.BloomLevel;
+import com.aives.model.enums.DifficultyLevel;
+import jakarta.validation.constraints.Size;
 import com.aives.model.enums.QuestionStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +25,11 @@ public class QuestionRequest {
 
     @NotNull(message = "Mức độ nhận thức Bloom không được để trống")
     private BloomLevel bloomLevel;
+
+    private DifficultyLevel difficulty;
+
+    @Size(max = 2000, message = "Ghi chú tối đa 2000 ký tự")
+    private String notes;
 
     private QuestionStatus status;
 }

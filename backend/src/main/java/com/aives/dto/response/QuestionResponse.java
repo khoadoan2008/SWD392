@@ -5,6 +5,7 @@ import com.aives.model.entity.Rubric;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
 import com.aives.model.enums.BloomLevel;
+import com.aives.model.enums.DifficultyLevel;
 import com.aives.model.enums.QuestionSource;
 import com.aives.model.enums.QuestionStatus;
 
@@ -20,6 +21,8 @@ public record QuestionResponse(
         String content,
         String referenceAnswer,
         BloomLevel bloomLevel,
+        DifficultyLevel difficulty,
+        String notes,
         QuestionStatus status,
         QuestionSource source,
         UserSummary createdBy,
@@ -59,6 +62,8 @@ public record QuestionResponse(
                 q.getContent(),
                 q.getReferenceAnswer(),
                 q.getBloomLevel(),
+                q.getDifficulty(),
+                q.getNotes(),
                 q.getStatus(),
                 q.getSource(),
                 UserSummary.of(q.getCreatedBy()),

@@ -42,34 +42,21 @@ BEGIN
     VALUES (prj, 'Chương 2 - Servlet', 'Hãy trình bày vòng đời của một Servlet trong web container.',
             'Container nạp class, gọi init() một lần; mỗi request gọi service() -> doGet/doPost; khi undeploy gọi destroy().',
             'UNDERSTAND', 'APPROVED', 'MANUAL', gv1, gv1) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Nêu đủ 3 phương thức vòng đời', 'init, service, destroy', 1.5, 1),
-     (q, 'Giải thích vai trò của web container', 'container, tomcat', 1.0, 2),
-     (q, 'Nêu số lần mỗi phương thức được gọi', 'một lần, mỗi request, nhiều lần', 0.5, 3);
 
     INSERT INTO questions (subject_id, topic, content, reference_answer, bloom_level, status, source, created_by, reviewed_by)
     VALUES (prj, 'Chương 3 - JSP', 'So sánh JSP include directive và jsp:include action. Khi nào nên dùng mỗi loại?',
             'Directive include tại thời điểm dịch (tĩnh), action include tại thời điểm chạy (động).',
             'ANALYZE', 'APPROVED', 'MANUAL', gv1, gv1) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Phân biệt thời điểm include (dịch / chạy)', 'dịch, biên dịch, translation, runtime, chạy', 1.5, 1),
-     (q, 'Nêu tình huống sử dụng phù hợp', 'header, footer, động, tĩnh', 1.0, 2);
 
     INSERT INTO questions (subject_id, topic, content, reference_answer, bloom_level, status, source, created_by, reviewed_by)
     VALUES (prj, 'Chương 4 - Session', 'Session và Cookie khác nhau như thế nào? Cho ví dụ ứng dụng đăng nhập.',
             'Session lưu phía server, cookie lưu phía client; JSESSIONID là cookie trỏ tới session.',
             'APPLY', 'APPROVED', 'MANUAL', gv1, gv1) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Nêu nơi lưu trữ của session và cookie', 'server, client, trình duyệt', 1.0, 1),
-     (q, 'Giải thích JSESSIONID', 'jsessionid, session id', 1.0, 2),
-     (q, 'Ví dụ áp dụng cho đăng nhập', 'đăng nhập, login, user', 1.0, 3);
 
     INSERT INTO questions (subject_id, topic, content, reference_answer, bloom_level, status, source, created_by, reviewed_by)
     VALUES (prj, 'Chương 5 - MVC', 'Trong mô hình MVC, Servlet, JSP và JavaBean đóng vai trò gì?',
             'Servlet = Controller, JSP = View, JavaBean/DAO = Model.',
             'REMEMBER', 'APPROVED', 'MANUAL', gv1, gv1) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Ghép đúng vai trò Model - View - Controller', 'controller, view, model', 2.0, 1);
 
     -- ===== PRJ301: AI sinh, chờ duyệt =====
     INSERT INTO questions (subject_id, topic, content, bloom_level, status, source, created_by) VALUES
@@ -86,15 +73,17 @@ BEGIN
     VALUES (dbi, 'Chuẩn hoá', 'Giải thích dạng chuẩn 3NF và cho ví dụ một bảng vi phạm 3NF.',
             'Không có phụ thuộc bắc cầu của thuộc tính không khoá vào khoá chính.',
             'UNDERSTAND', 'APPROVED', 'MANUAL', gv2, gv2) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Định nghĩa đúng 3NF', 'bắc cầu, transitive, khoá chính', 1.5, 1),
-     (q, 'Ví dụ vi phạm và cách tách bảng', 'ví dụ, tách', 1.5, 2);
 
     INSERT INTO questions (subject_id, topic, content, reference_answer, bloom_level, status, source, created_by, reviewed_by)
     VALUES (dbi, 'Transaction', 'Trình bày 4 tính chất ACID của transaction.',
             'Atomicity, Consistency, Isolation, Durability.',
             'REMEMBER', 'APPROVED', 'MANUAL', gv2, gv2) RETURNING id INTO q;
-    INSERT INTO rubrics (question_id, criterion, keywords, max_score, sort_order) VALUES
-     (q, 'Nêu đủ 4 tính chất', 'atomicity, consistency, isolation, durability, nguyên tử, nhất quán, cô lập, bền vững', 2.0, 1),
-     (q, 'Giải thích ý nghĩa từng tính chất', 'nghĩa là, đảm bảo', 1.0, 2);
+    -- Một bộ rubric 10 điểm dùng chung cho mỗi môn, không còn theo từng câu.
+    INSERT INTO rubrics (subject_id, criterion, keywords, max_score, sort_order) VALUES
+     (prj, 'Giải thích đúng kiến thức Java Web và cơ chế hoạt động', 'servlet, jsp, session, mvc', 4, 1),
+     (prj, 'Phân tích và áp dụng vào tình huống phù hợp', 'ví dụ, ứng dụng, phân tích', 4, 2),
+     (prj, 'Trình bày lập luận rõ ràng', 'vì, do, kết luận', 2, 3),
+     (dbi, 'Giải thích đúng khái niệm cơ sở dữ liệu', 'khóa, chuẩn hóa, transaction, acid', 4, 1),
+     (dbi, 'Phân tích ví dụ và giải pháp', 'ví dụ, tách bảng, nhất quán', 4, 2),
+     (dbi, 'Trình bày lập luận rõ ràng', 'vì, do, kết luận', 2, 3);
 END $$;

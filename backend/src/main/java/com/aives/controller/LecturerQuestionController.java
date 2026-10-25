@@ -12,6 +12,10 @@ import com.aives.security.UserPrincipal;
 import com.aives.service.QuestionService;
 import com.aives.service.AiQuestionGenerationService;
 import com.aives.service.QuestionAccessService;
+import com.aives.service.QuestionImportService;
+import com.aives.dto.response.QuestionImportResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +36,31 @@ public class LecturerQuestionController {
     private final QuestionService questionService;
     private final AiQuestionGenerationService aiGeneration;
     private final QuestionAccessService generationAccess;
+    private final QuestionImportService questionImportService;
+
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> downloadImportTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Question_Template.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(questionImportService.template());
+    }
+
+    @PostMapping(value = "/import", consumes = "multipart/form-data")
+    public ResponseEntity<ApiResponse<QuestionImportResponse>> importQuestions(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(defaultValue = "false") boolean confirm,
+            @RequestParam(defaultValue = "PENDING_REVIEW") QuestionStatus status,
+            @RequestParam(required = false) String previewHash) {
+        var result = questionImportService.process(principal.getUser().getId(), file, confirm, status, previewHash);
+        boolean valid = result.invalidRows() == 0;
+        String message = !valid ? "Tệp có dòng lỗi. Chưa lưu câu hỏi nào."
+                : confirm ? "Đã nhập thành công " + result.importedCount() + " câu hỏi."
+                : "Đã kiểm tra tệp. Chưa lưu; hãy xác nhận để nhập.";
+        var body = ApiResponse.<QuestionImportResponse>builder().success(valid).message(message).data(result).build();
+        return ResponseEntity.status(confirm && !valid ? 422 : 200).body(body);
+    }
 
     @GetMapping("/generation-subjects")
     public ResponseEntity<ApiResponse<List<GenerationSubjectResponse>>> generationSubjects(

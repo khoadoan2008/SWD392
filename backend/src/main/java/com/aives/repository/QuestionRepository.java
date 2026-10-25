@@ -38,4 +38,7 @@ public interface QuestionRepository extends JpaRepository<Question, Integer> {
     List<Question> findRandomApprovedBySubject(@Param("subjectId") Integer subjectId, Pageable pageable);
 
     List<Question> findBySubjectIdAndStatusOrderByIdDesc(Integer subjectId, QuestionStatus status);
+
+    @Query("SELECT q.content FROM Question q WHERE q.subject.id = :subjectId")
+    List<String> findContentsBySubjectId(@Param("subjectId") Integer subjectId);
 }
