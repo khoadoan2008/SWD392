@@ -1,9 +1,26 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { userApi } from '../../api/userApi';
 import { subjectApi } from '../../api/subjectApi';
-import { Users, Plus, Edit2, Trash2, Search, CheckCircle2, XCircle, Shield, UserCheck, GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  Users, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  Search, 
+  CheckCircle2, 
+  XCircle, 
+  Shield, 
+  UserCheck, 
+  GraduationCap, 
+  AlertCircle, 
+  Loader2,
+  FileSpreadsheet
+} from 'lucide-react';
+import ImportUsersModal from '../../components/ImportUsersModal';
 
 export default function UsersPage() {
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [stats, setStats] = useState(null);
@@ -15,6 +32,7 @@ export default function UsersPage() {
 
   // Modal Form State
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,6 +44,12 @@ export default function UsersPage() {
   const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('import') === 'true') {
+      setImportModalOpen(true);
+    }
+  }, [searchParams]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -173,13 +197,25 @@ export default function UsersPage() {
           <p className="text-sm text-slate-400">Phân quyền Admin, Giảng viên bộ môn và Sinh viên tham gia thi</p>
         </div>
 
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Thêm người dùng mới
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setImportModalOpen(true)}
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Import Sinh Viên
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Thêm người dùng mới
+          </button>
+        </div>
       </div>
 
       {/* Role Stats Filter Pills */}
@@ -351,7 +387,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Create / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative my-8">
@@ -506,6 +542,13 @@ export default function UsersPage() {
           </div>
         </div>
       )}
+
+      {/* Import Modal */}
+      <ImportUsersModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={fetchUsers}
+      />
 
     </div>
   );
