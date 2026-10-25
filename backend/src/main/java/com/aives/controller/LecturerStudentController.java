@@ -8,7 +8,6 @@ import com.aives.repository.SubjectRepository;
 import com.aives.security.UserPrincipal;
 import com.aives.service.StudentImportService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,7 +24,6 @@ import java.io.IOException;
 @RequestMapping("/api/lecturer/students")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('ADMIN', 'LECTURER')")
-@Tag(name = "Lecturer Students", description = "Dành cho Giảng viên: Import danh sách sinh viên lớp thi qua Excel/CSV")
 public class LecturerStudentController {
 
     private final StudentImportService studentImportService;

@@ -9,7 +9,6 @@ import com.aives.model.enums.Role;
 import com.aives.service.StudentImportService;
 import com.aives.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -27,7 +26,6 @@ import java.util.Map;
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin Users", description = "Quản lý người dùng và cấp tài khoản sinh viên hàng loạt qua file Excel")
 public class AdminUserController {
 
     private final UserService userService;
