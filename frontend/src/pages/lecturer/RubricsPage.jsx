@@ -6,22 +6,19 @@ import {
   Plus, 
   Edit2, 
   Trash2, 
-  Tag, 
-  HelpCircle, 
   CheckCircle2, 
   AlertCircle, 
-  Loader2 
+  Loader2,
+  BookOpen
 } from 'lucide-react';
 
 export default function RubricsPage() {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [questions, setQuestions] = useState([]);
-  const [selectedQuestionId, setSelectedQuestionId] = useState('');
   const [rubrics, setRubrics] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Modal
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRubric, setEditingRubric] = useState(null);
   const [criterion, setCriterion] = useState('');
@@ -34,43 +31,36 @@ export default function RubricsPage() {
     questionApi.getGenerationSubjects().then((res) => {
       if (res.success && res.data.length > 0) {
         setSubjects(res.data);
-        setSelectedSubjectId(res.data[0].id);
+        setSelectedSubjectId(res.data[0].id.toString());
       }
     });
   }, []);
 
+  const fetchRubrics = async (subjectId) => {
+    if (!subjectId) {
+      setRubrics([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await rubricApi.getBySubject(subjectId);
+      if (res.success) {
+        setRubrics(res.data);
+      }
+    } catch (err) {
+      console.error('Lỗi tải rubric:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedSubjectId) {
-      questionApi.search({ subjectId: selectedSubjectId }).then((res) => {
-        if (res.success) {
-          setQuestions(res.data);
-          if (res.data.length > 0) {
-            setSelectedQuestionId(res.data[0].id);
-          } else {
-            setSelectedQuestionId('');
-            setRubrics([]);
-          }
-        }
-      });
+      fetchRubrics(selectedSubjectId);
     }
   }, [selectedSubjectId]);
 
-  useEffect(() => {
-    if (selectedQuestionId) {
-      setLoading(true);
-      rubricApi.getByQuestion(selectedQuestionId)
-        .then((res) => {
-          if (res.success) {
-            setRubrics(res.data);
-          }
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setRubrics([]);
-    }
-  }, [selectedQuestionId]);
-
-  const selectedQuestion = questions.find((q) => q.id === parseInt(selectedQuestionId, 10));
+  const selectedSubject = subjects.find((s) => s.id === parseInt(selectedSubjectId, 10));
   const totalScore = rubrics.reduce((acc, r) => acc + (parseFloat(r.maxScore) || 0), 0);
 
   const openCreateModal = () => {
@@ -113,14 +103,12 @@ export default function RubricsPage() {
       };
 
       if (editingRubric) {
-        await rubricApi.update(editingRubric.id, selectedQuestionId, payload);
+        await rubricApi.update(editingRubric.id, selectedSubjectId, payload);
       } else {
-        await rubricApi.create(selectedQuestionId, payload);
+        await rubricApi.create(selectedSubjectId, payload);
       }
       setModalOpen(false);
-      // Reload rubrics
-      const res = await rubricApi.getByQuestion(selectedQuestionId);
-      if (res.success) setRubrics(res.data);
+      await fetchRubrics(selectedSubjectId);
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi lưu tiêu chí rubric');
     } finally {
@@ -129,7 +117,7 @@ export default function RubricsPage() {
   };
 
   const handleDeleteRubric = async (id) => {
-    if (!window.confirm('Xoá tiêu chí rubric này?')) return;
+    if (!window.confirm('Xoá tiêu chí rubric này của môn học?')) return;
     try {
       await rubricApi.delete(id);
       setRubrics(rubrics.filter((r) => r.id !== id));
@@ -146,15 +134,15 @@ export default function RubricsPage() {
         <div>
           <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold uppercase tracking-wider mb-1">
             <FileText className="w-4 h-4" />
-            Khảo thí &amp; Đánh giá
+            Khảo thí &amp; Đánh giá chuẩn đầu ra
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Tiêu chí Rubric</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Tiêu chí Rubric theo Môn học</h1>
           <p className="text-sm text-slate-400">
-            Thiết lập các tiêu chí đánh giá, thang điểm và từ khóa mục tiêu phục vụ cơ chế hỏi xoáy của AI
+            Thiết lập các tiêu chí đánh giá, thang điểm và từ khóa mục tiêu dùng chung cho tất cả các câu hỏi của môn học
           </p>
         </div>
 
-        {selectedQuestionId && (
+        {selectedSubjectId && (
           <button
             onClick={openCreateModal}
             className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
@@ -165,14 +153,14 @@ export default function RubricsPage() {
         )}
       </div>
 
-      {/* Selector Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800">
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Môn học</label>
+      {/* Subject Filter & Summary Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 md:col-span-2">
+          <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">Chọn Môn học</label>
           <select
             value={selectedSubjectId}
             onChange={(e) => setSelectedSubjectId(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm font-medium"
           >
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
@@ -182,47 +170,37 @@ export default function RubricsPage() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 uppercase mb-1.5">Câu hỏi trong ngân hàng</label>
-          <select
-            value={selectedQuestionId}
-            onChange={(e) => setSelectedQuestionId(e.target.value)}
-            disabled={questions.length === 0}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm disabled:opacity-50"
-          >
-            {questions.length === 0 ? (
-              <option value="">(Môn này chưa có câu hỏi nào)</option>
+        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+          <span className="text-xs font-semibold text-slate-400 uppercase">Tổng điểm Rubric chuẩn</span>
+          <div className="flex items-baseline gap-2 mt-2">
+            <span className={`text-3xl font-extrabold font-mono ${totalScore === 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {totalScore.toFixed(1)}
+            </span>
+            <span className="text-sm text-slate-500">/ 10.0 điểm</span>
+          </div>
+          <div className="mt-2 text-xs">
+            {totalScore === 10 ? (
+              <span className="text-emerald-400 flex items-center gap-1 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Chuẩn 10.0 điểm thi vấn đáp
+              </span>
             ) : (
-              questions.map((q) => (
-                <option key={q.id} value={q.id}>
-                  #{q.id} · {q.content.length > 60 ? q.content.substring(0, 60) + '...' : q.content}
-                </option>
-              ))
+              <span className="text-amber-400 flex items-center gap-1 font-medium">
+                <AlertCircle className="w-3.5 h-3.5" /> Nên đủ 10.0 điểm trước khi duyệt câu hỏi
+              </span>
             )}
-          </select>
+          </div>
         </div>
       </div>
 
-      {/* Question Details Banner */}
-      {selectedQuestion && (
-        <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
-              NHCH-{selectedQuestion.id} · {selectedQuestion.bloomLevel}
-            </span>
-            <p className="text-sm font-semibold text-white mt-1 leading-relaxed">{selectedQuestion.content}</p>
-            {selectedQuestion.referenceAnswer && (
-              <p className="text-xs text-slate-400 italic mt-1">
-                Đáp án mẫu: {selectedQuestion.referenceAnswer}
-              </p>
-            )}
+      {/* Selected Subject Banner */}
+      {selectedSubject && (
+        <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5" />
           </div>
-
-          <div className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 shrink-0 text-right">
-            <span className="text-xs text-slate-400 block">Tổng điểm rubric</span>
-            <span className={`text-xl font-bold font-mono ${totalScore === 10 ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {totalScore} / 10.0đ
-            </span>
+          <div>
+            <span className="font-mono text-xs font-bold text-indigo-400 uppercase">{selectedSubject.code}</span>
+            <h2 className="text-sm font-semibold text-white">{selectedSubject.name}</h2>
           </div>
         </div>
       )}
@@ -231,7 +209,7 @@ export default function RubricsPage() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl p-6">
         <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
           <FileText className="w-4 h-4 text-cyan-400" />
-          Danh sách các tiêu chí đánh giá ({rubrics.length})
+          Các tiêu chí đánh giá của môn học ({rubrics.length})
         </h3>
 
         {loading ? (
@@ -241,7 +219,7 @@ export default function RubricsPage() {
           </div>
         ) : rubrics.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
-            Chưa có tiêu chí nào cho câu hỏi này. Bấm "Thêm tiêu chí mới" để tạo.
+            Môn học này chưa có tiêu chí Rubric nào. Bấm "Thêm tiêu chí mới" để tạo.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -299,7 +277,7 @@ export default function RubricsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
             <h2 className="text-lg font-bold text-white mb-4">
-              {editingRubric ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí Rubric mới'}
+              {editingRubric ? 'Chỉnh sửa tiêu chí' : 'Thêm tiêu chí Rubric cho môn học'}
             </h2>
 
             <form onSubmit={handleSaveRubric} className="space-y-4 text-sm">
@@ -309,7 +287,7 @@ export default function RubricsPage() {
                   type="text"
                   value={criterion}
                   onChange={(e) => setCriterion(e.target.value)}
-                  placeholder="Ví dụ: Lập luận kiến trúc kỹ thuật..."
+                  placeholder="Ví dụ: Hiểu rõ nguyên lý và cơ chế hoạt động..."
                   required
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
                 />
@@ -323,11 +301,11 @@ export default function RubricsPage() {
                   type="text"
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="Ví dụ: caching, latency, throughput, consistency..."
+                  placeholder="Ví dụ: latency, throughput, consistency, thread safety..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  AI sẽ tự động phát hiện nếu sinh viên không nhắc đến các từ khóa này để đặt câu hỏi xoáy sâu.
+                  AI Giám khảo sẽ tự động phát hiện nếu sinh viên không nhắc đến các từ khóa này để đặt câu hỏi xoáy sâu.
                 </p>
               </div>
 
@@ -361,7 +339,7 @@ export default function RubricsPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Huỷ
                 </button>

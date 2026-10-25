@@ -1,5 +1,7 @@
 package com.aives.service;
 
+import com.aives.dto.request.CreateUserRequest;
+import com.aives.dto.request.UpdateUserRequest;
 import com.aives.dto.response.UserResponse;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
@@ -22,8 +24,10 @@ public class UserService {
     private final Pbkdf2CompatiblePasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
-    public List<User> searchUsers(Role role, String q) {
-        return userRepository.searchUsers(role, q);
+    public List<UserResponse> searchUsers(Role role, String q) {
+        return userRepository.searchUsers(role, q).stream()
+                .map(UserResponse::of)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -37,70 +41,80 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public User getUserById(Integer id) {
+    public UserResponse getUserById(Integer id) {
+        return UserResponse.of(findUserEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public User findUserEntity(Integer id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng ID: " + id));
     }
 
     @Transactional
-    public User createUser(User user, String rawPassword, List<Integer> subjectIds) {
-        if (userRepository.existsByUsername(user.getUsername())) {
+    public UserResponse createUser(CreateUserRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("Tên đăng nhập đã tồn tại.");
         }
-        if (rawPassword == null || rawPassword.length() < 6) {
+        if (request.getPassword() == null || request.getPassword().length() < 6) {
             throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự.");
         }
-        user.setPasswordHash(passwordEncoder.encode(rawPassword));
 
-        if (user.getRole() == Role.LECTURER && subjectIds != null && !subjectIds.isEmpty()) {
-            Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(subjectIds));
+        User user = User.builder()
+                .username(request.getUsername().trim())
+                .fullName(request.getFullName().trim())
+                .email(request.getEmail())
+                .role(request.getRole())
+                .studentCode(request.getRole() == Role.STUDENT ? request.getStudentCode() : null)
+                .active(request.isActive())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .build();
+
+        if (user.getRole() == Role.LECTURER && request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
+            Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
         } else {
             user.setAssignedSubjects(new HashSet<>());
         }
 
-        if (user.getRole() != Role.STUDENT) {
-            user.setStudentCode(null);
-        }
-
-        return userRepository.save(user);
+        return UserResponse.of(userRepository.save(user));
     }
 
     @Transactional
-    public User updateUser(Integer id, User userUpdate, String newPassword, List<Integer> subjectIds) {
-        User user = getUserById(id);
+    public UserResponse updateUser(Integer id, UpdateUserRequest request) {
+        User user = findUserEntity(id);
 
-        user.setFullName(userUpdate.getFullName());
-        user.setEmail(userUpdate.getEmail());
-        user.setActive(userUpdate.isActive());
-        user.setRole(userUpdate.getRole());
+        user.setFullName(request.getFullName().trim());
+        user.setEmail(request.getEmail());
+        user.setActive(request.isActive());
+        user.setRole(request.getRole());
 
         if (user.getRole() == Role.STUDENT) {
-            user.setStudentCode(userUpdate.getStudentCode());
+            user.setStudentCode(request.getStudentCode());
         } else {
             user.setStudentCode(null);
         }
 
-        if (newPassword != null && !newPassword.trim().isEmpty()) {
-            if (newPassword.trim().length() < 6) {
+        if (request.getNewPassword() != null && !request.getNewPassword().trim().isEmpty()) {
+            if (request.getNewPassword().trim().length() < 6) {
                 throw new IllegalArgumentException("Mật khẩu mới tối thiểu 6 ký tự.");
             }
-            user.setPasswordHash(passwordEncoder.encode(newPassword.trim()));
+            user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
         }
 
-        if (user.getRole() == Role.LECTURER && subjectIds != null) {
-            Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(subjectIds));
+        if (user.getRole() == Role.LECTURER && request.getSubjectIds() != null) {
+            Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
         } else {
             user.getAssignedSubjects().clear();
         }
 
-        return userRepository.save(user);
+        return UserResponse.of(userRepository.save(user));
     }
 
     @Transactional
     public void deleteUser(Integer id) {
-        User user = getUserById(id);
+        User user = findUserEntity(id);
         userRepository.delete(user);
     }
 }

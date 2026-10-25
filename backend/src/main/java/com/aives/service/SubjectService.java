@@ -1,5 +1,7 @@
 package com.aives.service;
 
+import com.aives.dto.request.SubjectRequest;
+import com.aives.dto.response.SubjectResponse;
 import com.aives.model.entity.Subject;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,44 +17,65 @@ public class SubjectService {
     private final SubjectRepository subjectRepository;
 
     @Transactional(readOnly = true)
-    public List<Subject> getAllSubjects() {
-        return subjectRepository.findAll();
+    public List<SubjectResponse> getAllSubjects() {
+        return subjectRepository.findAll().stream().map(SubjectResponse::of).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<Subject> getActiveSubjects() {
-        return subjectRepository.findByActiveTrueOrderByCodeAsc();
+    public List<SubjectResponse> getActiveSubjects() {
+        return subjectRepository.findByActiveTrueOrderByCodeAsc().stream().map(SubjectResponse::of).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<Subject> getSubjectsByLecturer(Integer lecturerId) {
-        return subjectRepository.findByLecturerId(lecturerId);
+    public List<SubjectResponse> getSubjectsByLecturer(Integer lecturerId) {
+        return subjectRepository.findByLecturerId(lecturerId).stream().map(SubjectResponse::of).toList();
     }
 
     @Transactional(readOnly = true)
-    public Subject getSubjectById(Integer id) {
+    public SubjectResponse getSubjectById(Integer id) {
+        return SubjectResponse.of(findSubjectEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public Subject findSubjectEntity(Integer id) {
         return subjectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + id));
     }
 
     @Transactional
-    public Subject saveSubject(Subject subject) {
-        String code = subject.getCode().trim().toUpperCase();
-        subject.setCode(code);
-
-        if (subject.getId() == null) {
-            if (subjectRepository.existsByCodeIgnoreCase(code)) {
-                throw new IllegalArgumentException("Mã môn học " + code + " đã tồn tại.");
-            }
-        } else {
-            subjectRepository.findByCodeIgnoreCase(code).ifPresent(existing -> {
-                if (!existing.getId().equals(subject.getId())) {
-                    throw new IllegalArgumentException("Mã môn học " + code + " đã được sử dụng bởi môn khác.");
-                }
-            });
+    public SubjectResponse createSubject(SubjectRequest request) {
+        String code = request.getCode().trim().toUpperCase();
+        if (subjectRepository.existsByCodeIgnoreCase(code)) {
+            throw new IllegalArgumentException("Mã môn học " + code + " đã tồn tại.");
         }
 
-        return subjectRepository.save(subject);
+        Subject s = Subject.builder()
+                .code(code)
+                .name(request.getName().trim())
+                .description(request.getDescription())
+                .active(request.isActive())
+                .build();
+
+        return SubjectResponse.of(subjectRepository.save(s));
+    }
+
+    @Transactional
+    public SubjectResponse updateSubject(Integer id, SubjectRequest request) {
+        Subject s = findSubjectEntity(id);
+        String code = request.getCode().trim().toUpperCase();
+
+        subjectRepository.findByCodeIgnoreCase(code).ifPresent(existing -> {
+            if (!existing.getId().equals(id)) {
+                throw new IllegalArgumentException("Mã môn học " + code + " đã được sử dụng bởi môn khác.");
+            }
+        });
+
+        s.setCode(code);
+        s.setName(request.getName().trim());
+        s.setDescription(request.getDescription());
+        s.setActive(request.isActive());
+
+        return SubjectResponse.of(subjectRepository.save(s));
     }
 
     @Transactional

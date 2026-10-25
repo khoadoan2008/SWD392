@@ -2,7 +2,7 @@ package com.aives.controller;
 
 import com.aives.dto.request.RubricRequest;
 import com.aives.dto.response.ApiResponse;
-import com.aives.model.entity.Rubric;
+import com.aives.dto.response.RubricResponse;
 import com.aives.service.RubricService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,37 +20,26 @@ public class LecturerRubricController {
 
     private final RubricService rubricService;
 
-    @GetMapping("/question/{questionId}")
-    public ResponseEntity<ApiResponse<List<Rubric>>> getRubricsByQuestion(@PathVariable Integer questionId) {
-        return ResponseEntity.ok(ApiResponse.success(rubricService.getRubricsByQuestion(questionId)));
+    @GetMapping("/subject/{subjectId}")
+    public ResponseEntity<ApiResponse<List<RubricResponse>>> getRubricsBySubject(@PathVariable Integer subjectId) {
+        return ResponseEntity.ok(ApiResponse.success(rubricService.getRubricsBySubject(subjectId)));
     }
 
-    @PostMapping("/question/{questionId}")
-    public ResponseEntity<ApiResponse<Rubric>> createRubric(
-            @PathVariable Integer questionId,
+    @PostMapping("/subject/{subjectId}")
+    public ResponseEntity<ApiResponse<RubricResponse>> createRubric(
+            @PathVariable Integer subjectId,
             @Valid @RequestBody RubricRequest request) {
-        Rubric r = Rubric.builder()
-                .criterion(request.getCriterion())
-                .keywords(request.getKeywords())
-                .maxScore(request.getMaxScore())
-                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
-                .build();
-        return ResponseEntity.ok(ApiResponse.success("Đã thêm tiêu chí Rubric", rubricService.saveRubric(questionId, r)));
+        RubricResponse response = rubricService.createRubric(subjectId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã thêm tiêu chí Rubric cho môn học", response));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<Rubric>> updateRubric(
+    public ResponseEntity<ApiResponse<RubricResponse>> updateRubric(
             @PathVariable Integer id,
-            @RequestParam Integer questionId,
+            @RequestParam Integer subjectId,
             @Valid @RequestBody RubricRequest request) {
-        Rubric r = Rubric.builder()
-                .id(id)
-                .criterion(request.getCriterion())
-                .keywords(request.getKeywords())
-                .maxScore(request.getMaxScore())
-                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
-                .build();
-        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật tiêu chí Rubric", rubricService.saveRubric(questionId, r)));
+        RubricResponse response = rubricService.updateRubric(id, subjectId, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật tiêu chí Rubric cho môn học", response));
     }
 
     @DeleteMapping("/{id}")

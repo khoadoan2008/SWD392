@@ -45,6 +45,7 @@ class QuestionWorkflowTest {
     private Subject subject;
 
     @BeforeEach void setup() throws Exception {
+        jdbc.update("delete from rubrics");
         questions.deleteAll();
         // Reset only the isolated in-memory test database, never the user's databases.
         jdbc.update("delete from lecturer_subjects");
@@ -149,7 +150,7 @@ class QuestionWorkflowTest {
         var request=new GenerationRequest(subject.getId(),subject.getName(),"TCP",List.of(BloomLevel.ANALYZE),GenerationFixtures.MATERIAL);
         var generated=new GeneratedQuestionParser().parse(GenerationFixtures.valid(),request);
         int id=persistence.saveAll(lecturer.getId(),request,generated).get(0).id();
-        jdbc.update("update rubrics set max_score=1 where question_id=?",id);
+        jdbc.update("update rubrics set max_score=1 where subject_id=?",subject.getId());
         mvc.perform(patch("/api/lecturer/questions/"+id+"/status").param("to","APPROVED").header("Authorization",bearer(lecturer)))
             .andExpect(status().isBadRequest());
         assertEquals(com.aives.model.enums.QuestionStatus.PENDING_REVIEW,questions.findById(id).orElseThrow().getStatus());
