@@ -28,6 +28,7 @@ public class InterviewService {
     private final QuestionRepository questionRepository;
     private final RubricRepository rubricRepository;
     private final SubjectRepository subjectRepository;
+    private final UserRepository userRepository;
     private final SystemConfigService configService;
     private final FollowUpGenerator followUpGenerator;
 
@@ -35,6 +36,17 @@ public class InterviewService {
     public InterviewSessionResponse startSession(User student, Integer subjectId) {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
+
+        if (student.getRole() == Role.STUDENT) {
+            User studentUser = userRepository.findById(student.getId()).orElse(student);
+            if (studentUser.getAssignedSubjects() != null && !studentUser.getAssignedSubjects().isEmpty()) {
+                boolean isAssigned = studentUser.getAssignedSubjects().stream()
+                        .anyMatch(s -> s.getId().equals(subjectId));
+                if (!isAssigned) {
+                    throw new IllegalArgumentException("Sinh viên không được phân công tham gia môn thi này.");
+                }
+            }
+        }
 
         // If in-progress session exists, return it
         Optional<InterviewSession> existing = sessionRepository
@@ -210,8 +222,18 @@ public class InterviewService {
 
     @Transactional(readOnly = true)
     public StudentHomeResponse getStudentHomeData(User student) {
-        List<SubjectResponse> activeSubjects = subjectRepository.findByActiveTrueOrderByCodeAsc().stream()
-                .map(SubjectResponse::of).toList();
+        User studentUser = userRepository.findById(student.getId()).orElse(student);
+        List<SubjectResponse> activeSubjects;
+        if (studentUser.getAssignedSubjects() != null && !studentUser.getAssignedSubjects().isEmpty()) {
+            activeSubjects = studentUser.getAssignedSubjects().stream()
+                    .filter(Subject::isActive)
+                    .sorted(Comparator.comparing(Subject::getCode))
+                    .map(SubjectResponse::of)
+                    .toList();
+        } else {
+            activeSubjects = subjectRepository.findByActiveTrueOrderByCodeAsc().stream()
+                    .map(SubjectResponse::of).toList();
+        }
         List<InterviewSessionResponse> history = getStudentHistory(student.getId());
         return new StudentHomeResponse(activeSubjects, history);
     }
