@@ -2,7 +2,7 @@
 
 ## Kết quả
 
-Đã hoàn tất hai bước kỹ thuật được người dùng cho phép: backup/migration DB thật và kiểm thử tích hợp FE -> BE -> PostgreSQL thật. Bản bàn giao code dùng nhánh riêng `feature/be-question-excel-import`, không tự merge vào main/develop. Không gọi Gemini. Không đổi mật khẩu hay cơ chế xác thực PostgreSQL.
+Đã hoàn tất hai bước kỹ thuật được người dùng cho phép: backup/migration DB thật và kiểm thử tích hợp FE -> BE -> PostgreSQL thật. Bản bàn giao code dùng nhánh riêng `feature/question-excel-import`, không tự merge vào main/develop. Không gọi Gemini. Không đổi mật khẩu hay cơ chế xác thực PostgreSQL.
 
 ## 1. Backup trước khi thay đổi
 

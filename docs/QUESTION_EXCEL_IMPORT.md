@@ -193,7 +193,7 @@ Kết quả đã xác minh ở bản triển khai:
 - Lần PostgreSQL đầu: 20/20 ca import đạt, lô 20 câu lưu khoảng 201 ms sau warmup. Đây là thời gian service/transaction trong môi trường thử, không phải bảo đảm mọi máy hay tổng thời gian mở Excel/upload/UI đều dưới 2 giây.
 - Chạy lại bản cuối: **24/24 ca import đạt trên PostgreSQL 17**, gồm rollback khi DB lỗi và nhập đồng thời. Lô 20 câu ở lần này khoảng **83 ms** sau warmup; giới hạn phép đo như trên.
 
-Bản bàn giao dùng nhánh riêng `feature/be-question-excel-import`, gồm cả BE/Database và FE của chức năng 1. Không commit/push trực tiếp vào main/develop; không sửa source của Archify hay các chức năng 2–4. Không đưa config.local.properties, database dump hoặc credential lên GitHub.
+Bản bàn giao dùng nhánh riêng `feature/question-excel-import`, gồm cả BE/Database và FE của chức năng 1. Không commit/push trực tiếp vào main/develop; không sửa source của Archify hay các chức năng 2–4. Không đưa config.local.properties, database dump hoặc credential lên GitHub.
 
 ## 8. Điểm mở code nhanh khi thầy hỏi
 
