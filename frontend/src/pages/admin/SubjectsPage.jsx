@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { subjectApi } from '../../api/subjectApi';
-import { BookOpen, Plus, Edit2, Trash2, CheckCircle2, XCircle, Search, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  BookOpen, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  CheckCircle2, 
+  XCircle, 
+  Search, 
+  AlertCircle, 
+  Loader2 
+} from 'lucide-react';
 
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState([]);

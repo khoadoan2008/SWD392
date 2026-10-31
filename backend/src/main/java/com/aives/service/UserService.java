@@ -70,7 +70,7 @@ public class UserService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        if (user.getRole() == Role.LECTURER && request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
+        if ((user.getRole() == Role.LECTURER || user.getRole() == Role.STUDENT) && request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
             Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
         } else {
@@ -102,7 +102,7 @@ public class UserService {
             user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
         }
 
-        if (user.getRole() == Role.LECTURER && request.getSubjectIds() != null) {
+        if ((user.getRole() == Role.LECTURER || user.getRole() == Role.STUDENT) && request.getSubjectIds() != null) {
             Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
         } else {
