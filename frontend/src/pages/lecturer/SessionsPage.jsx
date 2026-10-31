@@ -4,14 +4,9 @@ import { sessionApi } from '../../api/sessionApi';
 import { subjectApi } from '../../api/subjectApi';
 import { 
   Clock, 
-  Search, 
   ExternalLink, 
   Trash2, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  GraduationCap, 
-  BookOpen 
+  Loader2 
 } from 'lucide-react';
 
 const STATUS_MAP = {
@@ -74,7 +69,7 @@ export default function SessionsPage() {
         </div>
         <h1 className="text-2xl font-bold text-white tracking-tight">Đợt thi vấn đáp &amp; Biên bản hỏi đáp</h1>
         <p className="text-sm text-slate-400">
-          Theo dõi toàn bộ các buổi thi vấn đáp của sinh viên, xem văn bản câu trả lời và câu hỏi xoáy thích ứng của AI
+          Theo dõi toàn bộ các buổi thi vấn đáp của sinh viên, xem văn bản câu trả lời, gợi ý chấm điểm của AI và điểm chốt chính thức
         </p>
       </div>
 
@@ -138,6 +133,7 @@ export default function SessionsPage() {
                   <th className="px-6 py-4">Sinh viên</th>
                   <th className="px-6 py-4">Môn học</th>
                   <th className="px-6 py-4">Trạng thái</th>
+                  <th className="px-6 py-4 text-center">Điểm số</th>
                   <th className="px-6 py-4">Thời gian thi</th>
                   <th className="px-6 py-4 text-right">Thao tác</th>
                 </tr>
@@ -161,6 +157,25 @@ export default function SessionsPage() {
                           {statusObj.label}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        {s.finalScore != null ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              {s.finalScore} / 10đ
+                            </span>
+                            <span className="text-[10px] text-emerald-500 mt-0.5 font-medium">Đã chốt điểm</span>
+                          </div>
+                        ) : s.aiSuggestedScore != null ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                              AI: {s.aiSuggestedScore}đ
+                            </span>
+                            <span className="text-[10px] text-amber-400 mt-0.5 font-medium">Chờ GV chốt</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-mono">—</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-xs text-slate-400">
                         <div>Bắt đầu: {s.startedAt ? new Date(s.startedAt).toLocaleString('vi-VN') : '—'}</div>
                         {s.endedAt && <div>Kết thúc: {new Date(s.endedAt).toLocaleString('vi-VN')}</div>}
@@ -169,10 +184,10 @@ export default function SessionsPage() {
                         <Link
                           to={`/lecturer/sessions/${s.id}`}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-xs font-semibold transition-colors"
-                          title="Xem biên bản hỏi đáp chi tiết"
+                          title="Xem biên bản & Chấm điểm"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          Xem chi tiết
+                          {s.finalScore != null ? 'Xem biên bản' : 'Chấm điểm'}
                         </Link>
                         <button
                           onClick={() => handleDelete(s.id, s.student?.fullName || s.student?.username)}

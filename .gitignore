@@ -29,3 +29,4 @@ desktop.ini
 /config.local.properties
 /config.local.properties.*
 /.tools/
+**/config.local.properties

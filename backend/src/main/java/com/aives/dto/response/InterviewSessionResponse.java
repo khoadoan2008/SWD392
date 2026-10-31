@@ -7,6 +7,7 @@ import com.aives.model.entity.User;
 import com.aives.model.enums.SessionStatus;
 import com.aives.model.enums.TurnType;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +21,16 @@ public record InterviewSessionResponse(
         Integer maxFollowups,
         LocalDateTime startedAt,
         LocalDateTime endedAt,
-        List<TurnSummary> turns
+        List<TurnSummary> turns,
+        BigDecimal aiSuggestedScore,
+        String aiFeedback,
+        String aiGradingSource,
+        BigDecimal finalScore,
+        String lecturerFeedback,
+        StudentSummary gradedBy,
+        LocalDateTime gradedAt,
+        List<SessionRubricScoreResponse> rubricScores,
+        boolean isGraded
 ) {
     public record StudentSummary(Integer id, String username, String fullName, String email, String studentCode) {
         public static StudentSummary of(User u) {
@@ -87,7 +97,18 @@ public record InterviewSessionResponse(
                 s.getEndedAt(),
                 s.getTurns() != null
                         ? s.getTurns().stream().map(TurnSummary::of).toList()
-                        : Collections.emptyList()
+                        : Collections.emptyList(),
+                s.getAiSuggestedScore(),
+                s.getAiFeedback(),
+                s.getAiGradingSource(),
+                s.getFinalScore(),
+                s.getLecturerFeedback(),
+                StudentSummary.of(s.getGradedBy()),
+                s.getGradedAt(),
+                s.getRubricScores() != null
+                        ? s.getRubricScores().stream().map(SessionRubricScoreResponse::of).toList()
+                        : Collections.emptyList(),
+                s.isGraded()
         );
     }
 }

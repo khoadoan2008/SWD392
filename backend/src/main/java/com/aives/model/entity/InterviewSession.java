@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,9 +50,41 @@ public class InterviewSession {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
+    @Column(name = "ai_suggested_score", precision = 5, scale = 2)
+    private BigDecimal aiSuggestedScore;
+
+    @Column(name = "ai_feedback", columnDefinition = "TEXT")
+    private String aiFeedback;
+
+    /** GEMINI | RULE_BASED | NO_RUBRIC; null = AI chưa chấm xong. */
+    @Column(name = "ai_grading_source", length = 20)
+    private String aiGradingSource;
+
+    @Column(name = "final_score", precision = 5, scale = 2)
+    private BigDecimal finalScore;
+
+    @Column(name = "lecturer_feedback", columnDefinition = "TEXT")
+    private String lecturerFeedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "graded_by")
+    private User gradedBy;
+
+    @Column(name = "graded_at")
+    private LocalDateTime gradedAt;
+
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("mainIndex ASC, followupIndex ASC")
     @JsonManagedReference
     @Builder.Default
     private List<InterviewTurn> turns = new ArrayList<>();
+
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @Builder.Default
+    private List<SessionRubricScore> rubricScores = new ArrayList<>();
+
+    public boolean isGraded() {
+        return finalScore != null;
+    }
 }

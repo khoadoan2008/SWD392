@@ -1,20 +1,20 @@
 -- =============================================================
 -- AIVES - AI Interactive Viva Examination System
 -- Schema cho Feature 1 (Ngân hàng câu hỏi & rubric),
---            Feature 3 (Phỏng vấn AI),
---            Feature 7 (Quản trị hệ thống)
+--            Feature 2 (Phỏng vấn thích ứng Adaptive AI),
+--            Feature 3 (Chấm điểm AI & Giảng viên thẩm định),
+--            Feature 4/7 (Quản trị hệ thống & Cấu hình)
 -- DBMS: PostgreSQL (>= 12)
 --
 -- Cách chạy:
 --   createdb -U postgres aives
 --   psql -U postgres -d aives -f database/aives_schema.sql
--- Tài khoản demo được tạo tự động khi app khởi động (AppInitListener)
 -- =============================================================
 
 -- Đảm bảo psql đọc file dạng UTF-8 (tránh lỗi font tiếng Việt trên Windows)
 SET client_encoding = 'UTF8';
 
-DROP TABLE IF EXISTS interview_turns, interview_sessions, rubrics, questions,
+DROP TABLE IF EXISTS session_rubric_scores, interview_turns, interview_sessions, rubrics, questions,
                      lecturer_subjects, subjects, system_configs, users CASCADE;
 
 -- ---------------- Feature 7: Quản trị hệ thống ----------------
@@ -29,19 +29,23 @@ CREATE TABLE users (
     active         BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX ix_users_role ON users(role);
+CREATE INDEX ix_users_student_code ON users(student_code);
 
 CREATE TABLE subjects (
     id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code         VARCHAR(20)  NOT NULL UNIQUE,
     name         VARCHAR(200) NOT NULL,
     description  TEXT,
-    active       BOOLEAN      NOT NULL DEFAULT TRUE
+    active       BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Phân quyền giảng viên <-> môn học
 CREATE TABLE lecturer_subjects (
     lecturer_id  INT NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
     subject_id   INT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    assigned_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (lecturer_id, subject_id)
 );
 
@@ -76,25 +80,43 @@ CREATE INDEX ix_questions_subject_status ON questions(subject_id, status);
 -- Rubric dùng chung theo môn học (đồng bộ entity Rubric).
 CREATE TABLE rubrics (
     id           INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    subject_id   INT           NOT NULL REFERENCES subjects(id),
+    subject_id   INT           NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
     criterion    VARCHAR(500)  NOT NULL,
     keywords     VARCHAR(500),                      -- từ khoá, phân tách bằng dấu phẩy (AI dùng để hỏi xoáy)
     max_score    NUMERIC(5,2)  NOT NULL CHECK (max_score > 0),
     sort_order   INT           NOT NULL DEFAULT 0
 );
 
--- ---------------- Feature 3: Phỏng vấn AI ----------------
+-- ---------------- Feature 3: Phỏng vấn AI & Chấm điểm ----------------
 CREATE TABLE interview_sessions (
     id                     INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    student_id             INT         NOT NULL REFERENCES users(id),
-    subject_id             INT         NOT NULL REFERENCES subjects(id),
-    status                 VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS'
+    student_id             INT          NOT NULL REFERENCES users(id),
+    subject_id             INT          NOT NULL REFERENCES subjects(id),
+    status                 VARCHAR(20)  NOT NULL DEFAULT 'IN_PROGRESS'
                              CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'ABORTED')),
-    answer_time_limit_sec  INT         NOT NULL,   -- snapshot cấu hình tại thời điểm thi
-    max_followups          INT         NOT NULL,
-    started_at             TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ended_at               TIMESTAMP
+    answer_time_limit_sec  INT          NOT NULL,   -- snapshot cấu hình tại thời điểm thi
+    max_followups          INT          NOT NULL,
+    started_at             TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at               TIMESTAMP,
+    ai_suggested_score     NUMERIC(5,2),            -- Điểm tổng do AI đề xuất
+    ai_feedback            TEXT,                    -- Đánh giá tổng quan của AI
+    ai_grading_source      VARCHAR(20),             -- GEMINI | RULE_BASED | NO_RUBRIC (NULL = AI đang chấm)
+    final_score            NUMERIC(5,2),            -- Điểm chốt chính thức của GV
+    lecturer_feedback      TEXT,                    -- Nhận xét của giảng viên
+    graded_by              INT          REFERENCES users(id) ON DELETE SET NULL,
+    graded_at              TIMESTAMP
 );
+
+-- Bảng điểm chi tiết theo từng tiêu chí Rubric
+CREATE TABLE session_rubric_scores (
+    id          INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    session_id  INT          NOT NULL REFERENCES interview_sessions(id) ON DELETE CASCADE,
+    rubric_id   INT          NOT NULL REFERENCES rubrics(id) ON DELETE CASCADE,
+    ai_score    NUMERIC(5,2),
+    final_score NUMERIC(5,2),
+    comment     TEXT
+);
+CREATE INDEX ix_session_rubric_scores_session ON session_rubric_scores(session_id);
 
 -- Mỗi lượt hỏi-đáp. Câu chính: followup_index = 0; câu hỏi xoáy: 1..max_followups
 -- Thứ tự hỏi: ORDER BY main_index, followup_index
