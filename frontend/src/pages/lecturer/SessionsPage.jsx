@@ -6,7 +6,8 @@ import {
   Clock, 
   ExternalLink, 
   Trash2, 
-  Loader2 
+  Loader2,
+  BookOpen
 } from 'lucide-react';
 
 const STATUS_MAP = {
