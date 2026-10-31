@@ -3,9 +3,10 @@ package com.aives.service;
 import com.aives.dto.request.CreateUserRequest;
 import com.aives.dto.request.UpdateUserRequest;
 import com.aives.dto.response.UserResponse;
+import com.aives.model.entity.Role;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.repository.RoleRepository;
 import com.aives.repository.SubjectRepository;
 import com.aives.repository.UserRepository;
 import com.aives.security.Pbkdf2CompatiblePasswordEncoder;
@@ -20,6 +21,7 @@ import java.util.*;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final SubjectRepository subjectRepository;
     private final Pbkdf2CompatiblePasswordEncoder passwordEncoder;
 
@@ -34,9 +36,9 @@ public class UserService {
     public Map<String, Long> countStats() {
         Map<String, Long> stats = new HashMap<>();
         stats.put("TOTAL", userRepository.count());
-        stats.put("ADMIN", userRepository.countByRole(Role.ADMIN));
-        stats.put("LECTURER", userRepository.countByRole(Role.LECTURER));
-        stats.put("STUDENT", userRepository.countByRole(Role.STUDENT));
+        stats.put("ADMIN", userRepository.countByRole_NameIgnoreCase("ADMIN"));
+        stats.put("LECTURER", userRepository.countByRole_NameIgnoreCase("LECTURER"));
+        stats.put("STUDENT", userRepository.countByRole_NameIgnoreCase("STUDENT"));
         return stats;
     }
 
@@ -60,17 +62,20 @@ public class UserService {
             throw new IllegalArgumentException("Mật khẩu tối thiểu 6 ký tự.");
         }
 
+        Role role = roleRepository.findByNameIgnoreCase(request.getRole().getName())
+                .orElseGet(() -> roleRepository.save(request.getRole()));
+
         User user = User.builder()
                 .username(request.getUsername().trim())
                 .fullName(request.getFullName().trim())
                 .email(request.getEmail())
-                .role(request.getRole())
-                .studentCode(request.getRole() == Role.STUDENT ? request.getStudentCode() : null)
+                .role(role)
+                .studentCode(role.isStudent() ? request.getStudentCode() : null)
                 .active(request.isActive())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
 
-        if ((user.getRole() == Role.LECTURER || user.getRole() == Role.STUDENT) && request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
+        if ((user.isLecturer() || user.isStudent()) && request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
             Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
         } else {
@@ -84,29 +89,30 @@ public class UserService {
     public UserResponse updateUser(Integer id, UpdateUserRequest request) {
         User user = findUserEntity(id);
 
+        Role role = roleRepository.findByNameIgnoreCase(request.getRole().getName())
+                .orElseGet(() -> roleRepository.save(request.getRole()));
+
         user.setFullName(request.getFullName().trim());
         user.setEmail(request.getEmail());
         user.setActive(request.isActive());
-        user.setRole(request.getRole());
+        user.setRole(role);
 
-        if (user.getRole() == Role.STUDENT) {
+        if (user.isStudent()) {
             user.setStudentCode(request.getStudentCode());
         } else {
             user.setStudentCode(null);
         }
 
-        if (request.getNewPassword() != null && !request.getNewPassword().trim().isEmpty()) {
-            if (request.getNewPassword().trim().length() < 6) {
+        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
+            if (request.getNewPassword().length() < 6) {
                 throw new IllegalArgumentException("Mật khẩu mới tối thiểu 6 ký tự.");
             }
-            user.setPasswordHash(passwordEncoder.encode(request.getNewPassword().trim()));
+            user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         }
 
-        if ((user.getRole() == Role.LECTURER || user.getRole() == Role.STUDENT) && request.getSubjectIds() != null) {
+        if ((user.isLecturer() || user.isStudent()) && request.getSubjectIds() != null) {
             Set<Subject> subjects = new HashSet<>(subjectRepository.findAllById(request.getSubjectIds()));
             user.setAssignedSubjects(subjects);
-        } else {
-            user.getAssignedSubjects().clear();
         }
 
         return UserResponse.of(userRepository.save(user));

@@ -2,7 +2,7 @@ package com.aives.controller;
 
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.repository.SubjectRepository;
 import com.aives.repository.UserRepository;
 import com.aives.security.JwtTokenProvider;
@@ -46,6 +46,8 @@ class StudentImportWorkflowTest {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private com.aives.repository.RoleRepository roleRepository;
 
     @Autowired
     private SubjectRepository subjectRepository;
@@ -95,7 +97,7 @@ class StudentImportWorkflowTest {
                 .username(username)
                 .fullName("Full Name " + username)
                 .passwordHash(passwordEncoder.encode("Demo@123"))
-                .role(role)
+                .role(roleRepository.findByNameIgnoreCase(role.getName()).orElseGet(() -> roleRepository.save(role)))
                 .studentCode(studentCode)
                 .email(username + "@fpt.edu.vn")
                 .active(true)

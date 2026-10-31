@@ -2,7 +2,7 @@ package com.aives.service;
 
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.repository.SubjectRepository;
 import com.aives.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class QuestionAccessService {
         // Open-in-view can retain a user across the provider call; reload security state.
         entityManager.refresh(actor);
         if (!actor.isActive()) throw new AccessDeniedException("Tài khoản không hoạt động.");
-        if (actor.getRole() != Role.ADMIN && actor.getRole() != Role.LECTURER)
+        if (!actor.isAdmin() && !actor.isLecturer())
             throw new AccessDeniedException("Chỉ giảng viên hoặc quản trị viên.");
         return actor;
     }
@@ -38,7 +38,7 @@ public class QuestionAccessService {
             .orElseThrow(() -> new IllegalArgumentException("Môn học không tồn tại hoặc ngừng hoạt động."));
         entityManager.refresh(subject);
         if (!subject.isActive()) throw new IllegalArgumentException("Môn học không tồn tại hoặc ngừng hoạt động.");
-        if (actor.getRole() != Role.ADMIN && subjects.findByLecturerId(actorId).stream().noneMatch(s -> s.getId().equals(subjectId)))
+        if (!actor.isAdmin() && subjects.findByLecturerId(actorId).stream().noneMatch(s -> s.getId().equals(subjectId)))
             throw new AccessDeniedException("Bạn chưa được phân công môn học này.");
         return subject;
     }
@@ -46,7 +46,7 @@ public class QuestionAccessService {
     @Transactional(readOnly = true)
     public List<Subject> manageable(int actorId) {
         User actor = actor(actorId);
-        return actor.getRole() == Role.ADMIN ? subjects.findByActiveTrueOrderByCodeAsc()
+        return actor.isAdmin() ? subjects.findByActiveTrueOrderByCodeAsc()
             : subjects.findByLecturerId(actorId).stream().filter(Subject::isActive)
                 .sorted(java.util.Comparator.comparing(Subject::getCode)).toList();
     }

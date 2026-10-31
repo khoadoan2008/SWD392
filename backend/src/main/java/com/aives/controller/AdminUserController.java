@@ -5,7 +5,7 @@ import com.aives.dto.request.UpdateUserRequest;
 import com.aives.dto.response.ApiResponse;
 import com.aives.dto.response.StudentImportResult;
 import com.aives.dto.response.UserResponse;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.service.StudentImportService;
 import com.aives.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;

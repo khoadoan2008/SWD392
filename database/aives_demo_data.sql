@@ -15,13 +15,18 @@ SET client_encoding = 'UTF8';
 INSERT INTO subjects (code, name, description) VALUES
  ('SWP391', 'Software Development Project', 'Quy trình phát triển phần mềm theo nhóm');
 
-INSERT INTO users (username, password_hash, full_name, email, role, student_code) VALUES
- ('admin',     '65536:kfTNw/rdoXXxzRGQ0Y0Z2g==:gbVuZTCHO759D4Ro6V/opitW/x27fUOAIQ2MGhrAa24=', 'Quản trị hệ thống', 'admin@aives.edu.vn',     'ADMIN',    NULL),
- ('lecturer1', '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Nguyễn Văn Minh',   'minhnv@aives.edu.vn',    'LECTURER', NULL),
- ('lecturer2', '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Trần Thị Lan',      'lantt@aives.edu.vn',     'LECTURER', NULL),
- ('student1',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Lê Hoàng An',       'anlh@student.edu.vn',    'STUDENT',  'SE170001'),
- ('student2',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Phạm Thu Hà',       'hapt@student.edu.vn',    'STUDENT',  'SE170002'),
- ('student3',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Đoàn Minh Khoa',    'khoadm@student.edu.vn',  'STUDENT',  'SE170003');
+INSERT INTO roles (name, description) VALUES
+ ('ADMIN',    'Quản trị hệ thống'),
+ ('LECTURER', 'Giảng viên'),
+ ('STUDENT',  'Sinh viên');
+
+INSERT INTO users (role_id, username, password_hash, full_name, email, student_code) VALUES
+ ((SELECT id FROM roles WHERE name = 'ADMIN'),    'admin',     '65536:kfTNw/rdoXXxzRGQ0Y0Z2g==:gbVuZTCHO759D4Ro6V/opitW/x27fUOAIQ2MGhrAa24=', 'Quản trị hệ thống', 'admin@aives.edu.vn',     NULL),
+ ((SELECT id FROM roles WHERE name = 'LECTURER'), 'lecturer1', '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Nguyễn Văn Minh',   'minhnv@aives.edu.vn',    NULL),
+ ((SELECT id FROM roles WHERE name = 'LECTURER'), 'lecturer2', '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Trần Thị Lan',      'lantt@aives.edu.vn',     NULL),
+ ((SELECT id FROM roles WHERE name = 'STUDENT'),  'student1',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Lê Hoàng An',       'anlh@student.edu.vn',    'SE170001'),
+ ((SELECT id FROM roles WHERE name = 'STUDENT'),  'student2',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Phạm Thu Hà',       'hapt@student.edu.vn',    'SE170002'),
+ ((SELECT id FROM roles WHERE name = 'STUDENT'),  'student3',  '65536:svZ+c3lZ4+XK6sWTdHNtdQ==:0svGRpt9mLJNAthHviv1HgZn30rF5ANNYsens3GXX4E=', 'Đoàn Minh Khoa',    'khoadm@student.edu.vn',  'SE170003');
 
 INSERT INTO lecturer_subjects (lecturer_id, subject_id)
 SELECT u.id, s.id FROM users u JOIN subjects s ON

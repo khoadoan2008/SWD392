@@ -4,7 +4,7 @@ import com.aives.model.entity.Question;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
 import com.aives.model.enums.BloomLevel;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.repository.QuestionRepository;
 import com.aives.repository.SubjectRepository;
 import com.aives.repository.UserRepository;
@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class QuestionWorkflowTest {
     @Autowired MockMvc mvc;
     @Autowired UserRepository users;
+    @Autowired com.aives.repository.RoleRepository roles;
     @Autowired SubjectRepository subjects;
     @Autowired QuestionRepository questions;
     @Autowired Pbkdf2CompatiblePasswordEncoder encoder;
@@ -60,7 +61,8 @@ class QuestionWorkflowTest {
     }
     private User user(String username,Role role) {
         User user=new User(); user.setUsername(username); user.setFullName("Người dùng "+username);
-        user.setPasswordHash(encoder.encode("Demo@123")); user.setRole(role); user.setActive(true);
+        user.setPasswordHash(encoder.encode("Demo@123")); Role r = roles.findByNameIgnoreCase(role.getName()).orElseGet(() -> roles.save(role));
+        user.setRole(r); user.setActive(true);
         return users.saveAndFlush(user);
     }
     private String bearer(User user) {

@@ -8,7 +8,7 @@ import com.aives.dto.response.SubjectResponse;
 import com.aives.exception.GradingException;
 import com.aives.model.entity.*;
 import com.aives.model.enums.QuestionStatus;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.model.enums.SessionStatus;
 import com.aives.model.enums.TurnType;
 import com.aives.repository.*;
@@ -44,7 +44,7 @@ public class InterviewService {
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
 
-        if (student.getRole() == Role.STUDENT) {
+        if (student.isStudent()) {
             User studentUser = userRepository.findById(student.getId()).orElse(student);
             if (studentUser.getAssignedSubjects() != null && !studentUser.getAssignedSubjects().isEmpty()) {
                 boolean isAssigned = studentUser.getAssignedSubjects().stream()
@@ -104,7 +104,7 @@ public class InterviewService {
     @Transactional
     public InterviewTurnDataResponse getCurrentTurnData(Integer sessionId, User student) {
         InterviewSession session = getSessionById(sessionId);
-        if (!session.getStudent().getId().equals(student.getId()) && student.getRole() != Role.ADMIN) {
+        if (!session.getStudent().getId().equals(student.getId()) && !student.isAdmin()) {
             throw new SecurityException("Bạn không có quyền truy cập lượt thi này.");
         }
 
@@ -225,7 +225,7 @@ public class InterviewService {
     @Transactional
     public void abortSession(Integer sessionId, User student) {
         InterviewSession session = getSessionById(sessionId);
-        if (!session.getStudent().getId().equals(student.getId()) && student.getRole() != Role.ADMIN) {
+        if (!session.getStudent().getId().equals(student.getId()) && !student.isAdmin()) {
             throw new SecurityException("Không có quyền huỷ lượt thi.");
         }
         if (session.getStatus() == SessionStatus.IN_PROGRESS) {
@@ -261,7 +261,7 @@ public class InterviewService {
 
     @Transactional(readOnly = true)
     public List<InterviewSessionResponse> searchSessions(User currentUser, Integer subjectId) {
-        List<Integer> allowedSubjects = (currentUser.getRole() == Role.ADMIN) ? null :
+        List<Integer> allowedSubjects = currentUser.isAdmin() ? null :
                 currentUser.getAssignedSubjects().stream().map(Subject::getId).toList();
         return sessionRepository.search(null, allowedSubjects, subjectId).stream()
                 .map(InterviewSessionResponse::of).toList();
@@ -269,7 +269,7 @@ public class InterviewService {
 
     @Transactional(readOnly = true)
     public Map<String, Long> countSessionStats(User currentUser) {
-        List<Integer> allowedSubjects = (currentUser.getRole() == Role.ADMIN) ? null :
+        List<Integer> allowedSubjects = currentUser.isAdmin() ? null :
                 currentUser.getAssignedSubjects().stream().map(Subject::getId).toList();
         Map<String, Long> stats = new HashMap<>();
         stats.put("TOTAL", 0L);
@@ -302,7 +302,7 @@ public class InterviewService {
     @Transactional
     public void deleteSession(Integer sessionId, User currentUser) {
         InterviewSession session = getSessionById(sessionId);
-        if (currentUser.getRole() != Role.ADMIN) {
+        if (!currentUser.isAdmin()) {
             if (session.getSubject() != null &&
                     currentUser.getAssignedSubjects().stream().noneMatch(s -> s.getId().equals(session.getSubject().getId()))) {
                 throw new SecurityException("Không có quyền xoá lượt thi môn học này.");
@@ -377,7 +377,7 @@ public class InterviewService {
     }
 
     private void checkLecturerPermission(InterviewSession session, User lecturer) {
-        if (lecturer.getRole() != Role.ADMIN) {
+        if (!lecturer.isAdmin()) {
             if (session.getSubject() != null &&
                     lecturer.getAssignedSubjects().stream().noneMatch(s -> s.getId().equals(session.getSubject().getId()))) {
                 throw new GradingException(HttpStatus.FORBIDDEN, "Không có quyền chấm điểm lượt thi môn học này.");

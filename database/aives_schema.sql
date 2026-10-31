@@ -15,21 +15,27 @@
 SET client_encoding = 'UTF8';
 
 DROP TABLE IF EXISTS session_rubric_scores, interview_turns, interview_sessions, rubrics, questions,
-                     lecturer_subjects, subjects, system_configs, users CASCADE;
+                     lecturer_subjects, subjects, system_configs, users, roles CASCADE;
 
--- ---------------- Feature 7: Quản trị hệ thống ----------------
+-- ---------------- Feature 7: Quản trị hệ thống & Phân quyền ----------------
+CREATE TABLE roles (
+    id          INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name        VARCHAR(20)  NOT NULL UNIQUE, -- 'ADMIN', 'LECTURER', 'STUDENT'
+    description VARCHAR(200)
+);
+
 CREATE TABLE users (
     id             INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    role_id        INT          NOT NULL REFERENCES roles(id),
     username       VARCHAR(50)  NOT NULL UNIQUE,
     password_hash  VARCHAR(255) NOT NULL,           -- PBKDF2: iterations:salt:hash
     full_name      VARCHAR(100) NOT NULL,
     email          VARCHAR(100),
-    role           VARCHAR(20)  NOT NULL CHECK (role IN ('ADMIN', 'LECTURER', 'STUDENT')),
     student_code   VARCHAR(20),                     -- MSSV, chỉ dùng cho STUDENT
     active         BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX ix_users_role ON users(role);
+CREATE INDEX ix_users_role_id ON users(role_id);
 CREATE INDEX ix_users_student_code ON users(student_code);
 
 CREATE TABLE subjects (

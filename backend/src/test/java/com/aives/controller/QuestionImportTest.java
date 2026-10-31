@@ -40,6 +40,7 @@ class QuestionImportTest {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired QuestionImportService imports;
+    @Autowired com.aives.repository.RoleRepository roles;
     @MockBean MaterialQuestionGenerator generator;
     User lecturer, other, student, admin;
     Subject subject;
@@ -54,7 +55,8 @@ class QuestionImportTest {
         lecturer.getAssignedSubjects().add(subject); lecturer = users.saveAndFlush(lecturer);
     }
     User user(String name, Role role) {
-        User u = new User(); u.setUsername(name); u.setFullName(name); u.setRole(role);
+        User u = new User(); u.setUsername(name); u.setFullName(name); Role r = roles.findByNameIgnoreCase(role.getName()).orElseGet(() -> roles.save(role));
+        u.setRole(r);
         u.setActive(true); u.setPasswordHash(encoder.encode("Demo@123")); return users.saveAndFlush(u);
     }
     String bearer(User u) {

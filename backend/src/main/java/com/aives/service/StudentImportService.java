@@ -3,7 +3,8 @@ package com.aives.service;
 import com.aives.dto.response.StudentImportResult;
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
+import com.aives.repository.RoleRepository;
 import com.aives.repository.SubjectRepository;
 import com.aives.repository.UserRepository;
 import com.aives.security.Pbkdf2CompatiblePasswordEncoder;
@@ -33,6 +34,7 @@ public class StudentImportService {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final SubjectRepository subjectRepository;
     private final Pbkdf2CompatiblePasswordEncoder passwordEncoder;
 
@@ -351,7 +353,7 @@ public class StudentImportService {
                     .studentCode(code)
                     .fullName(fullName)
                     .email(email.isEmpty() ? null : email)
-                    .role(Role.STUDENT)
+                    .role(roleRepository.findByNameIgnoreCase(Role.STUDENT_NAME).orElseGet(() -> roleRepository.save(Role.STUDENT)))
                     .active(true)
                     .passwordHash(passwordHash)
                     .assignedSubjects(subjects)

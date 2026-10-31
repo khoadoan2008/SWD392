@@ -3,7 +3,7 @@ package com.aives.controller;
 import com.aives.dto.response.ApiResponse;
 import com.aives.dto.response.StudentImportResult;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.repository.SubjectRepository;
 import com.aives.security.UserPrincipal;
 import com.aives.service.StudentImportService;
@@ -49,7 +49,7 @@ public class LecturerStudentController {
             @RequestParam(value = "updateExisting", required = false, defaultValue = "false") boolean updateExisting) {
 
         User currentUser = principal.getUser();
-        if (currentUser.getRole() == Role.LECTURER && subjectId != null) {
+        if (currentUser.isLecturer() && subjectId != null) {
             boolean isAssigned = subjectRepository.findByLecturerId(currentUser.getId()).stream()
                     .anyMatch(s -> s.getId().equals(subjectId));
             if (!isAssigned) {

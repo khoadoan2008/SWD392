@@ -1,6 +1,5 @@
 package com.aives.model.entity;
 
-import com.aives.model.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,8 +35,8 @@ public class User {
     @Column(length = 100)
     private String email;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
     @Column(name = "student_code", length = 20)
@@ -59,4 +58,20 @@ public class User {
     )
     @Builder.Default
     private Set<Subject> assignedSubjects = new HashSet<>();
+
+    public boolean isAdmin() {
+        return role != null && role.isAdmin();
+    }
+
+    public boolean isLecturer() {
+        return role != null && role.isLecturer();
+    }
+
+    public boolean isStudent() {
+        return role != null && role.isStudent();
+    }
+
+    public String getRoleName() {
+        return role != null ? role.getName() : null;
+    }
 }

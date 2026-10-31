@@ -2,7 +2,7 @@ package com.aives.dto.response;
 
 import com.aives.model.entity.Subject;
 import com.aives.model.entity.User;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import lombok.*;
 
 import java.time.LocalDateTime;

@@ -8,7 +8,7 @@ import com.aives.model.entity.User;
 import com.aives.model.enums.BloomLevel;
 import com.aives.model.enums.QuestionStatus;
 import com.aives.model.enums.QuestionSource;
-import com.aives.model.enums.Role;
+import com.aives.model.entity.Role;
 import com.aives.repository.QuestionRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -178,7 +178,7 @@ public class QuestionService {
     }
 
     public List<Integer> getAllowedSubjectIds(User user) {
-        if (user == null || user.getRole() == Role.ADMIN) {
+        if (user == null || user.isAdmin()) {
             return null; // Admin has access to all
         }
         List<Integer> ids = new ArrayList<>();
@@ -188,7 +188,7 @@ public class QuestionService {
     }
 
     public void checkSubjectPermission(User user, Integer subjectId) {
-        if (user == null || user.getRole() == Role.ADMIN) {
+        if (user == null || user.isAdmin()) {
             return;
         }
         List<Integer> allowed = getAllowedSubjectIds(user);
