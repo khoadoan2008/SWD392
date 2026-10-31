@@ -14,7 +14,8 @@ import {
   BrainCircuit, 
   HelpCircle, 
   User, 
-  Loader2 
+  Loader2,
+  AudioLines
 } from 'lucide-react';
 
 export default function InterviewRoomPage() {
@@ -29,11 +30,22 @@ export default function InterviewRoomPage() {
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
+  const submitLockRef = useRef(false);
+  const transcriptRef = useRef('');
+  const turnRef = useRef(null);
+  const streamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const animationRef = useRef(null);
 
   // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  useEffect(() => { turnRef.current = currentTurn; submitLockRef.current = false; }, [currentTurn?.id]);
 
   const fetchTurnData = async () => {
     try {
@@ -59,24 +71,59 @@ export default function InterviewRoomPage() {
     fetchTurnData();
   }, [id]);
 
-  // Live Timer Countdown
+  // A stable timer: never send requests inside a React state updater.
   useEffect(() => {
     if (!currentTurn) return;
+    const interval = window.setInterval(() => setRemainingSec(value => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(interval);
+  }, [currentTurn?.id]);
 
-    timerRef.current = setInterval(() => {
-      setRemainingSec((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          // Auto submit when time runs out
-          handleAutoSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  useEffect(() => {
+    if (currentTurn && remainingSec === 0) submitCurrentAnswer();
+  }, [remainingSec, currentTurn?.id]);
 
-    return () => clearInterval(timerRef.current);
-  }, [currentTurn]);
+  const stopAudioVisualizer = () => {
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    animationRef.current = null;
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    streamRef.current = null;
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+    setMicLevel(0);
+  };
+
+  const startAudioVisualizer = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = new AudioContextClass();
+      audioContextRef.current = context;
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      context.createMediaStreamSource(stream).connect(analyser);
+      const samples = new Uint8Array(analyser.frequencyBinCount);
+      const draw = () => {
+        analyser.getByteFrequencyData(samples);
+        const level = samples.reduce((sum, v) => sum + v, 0) / samples.length;
+        setMicLevel(level);
+        animationRef.current = requestAnimationFrame(draw);
+      };
+      draw();
+    } catch (error) {
+      console.warn('Không thể hiển thị sóng âm:', error.name);
+    }
+  };
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort();
+    window.speechSynthesis?.cancel();
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    audioContextRef.current?.close();
+  }, []);
 
   // Initialize Web Speech API Recognition
   useEffect(() => {
@@ -92,16 +139,19 @@ export default function InterviewRoomPage() {
         for (let i = 0; i < event.results.length; i++) {
           finalTrans += event.results[i][0].transcript + ' ';
         }
+        transcriptRef.current = finalTrans.trim();
         setTranscript(finalTrans.trim());
       };
 
       recognizer.onerror = (e) => {
         console.error('Speech recognition error:', e.error);
         setIsListening(false);
+        stopAudioVisualizer();
       };
 
       recognizer.onend = () => {
         setIsListening(false);
+        stopAudioVisualizer();
       };
 
       recognitionRef.current = recognizer;
@@ -116,11 +166,15 @@ export default function InterviewRoomPage() {
 
     if (isListening) {
       recognitionRef.current.stop();
+      stopAudioVisualizer();
       setIsListening(false);
     } else {
       try {
+        window.speechSynthesis?.cancel();
+        setIsSpeaking(false);
         recognitionRef.current.start();
         setIsListening(true);
+        startAudioVisualizer();
       } catch (err) {
         console.error(err);
       }
@@ -133,33 +187,36 @@ export default function InterviewRoomPage() {
     const utterance = new SpeechSynthesisUtterance(currentTurn.questionText);
     utterance.lang = speechLang;
     utterance.rate = 0.95;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!currentTurn || submitting) return;
-
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-
+  const submitCurrentAnswer = async () => {
+    const turn = turnRef.current;
+    if (!turn || submitLockRef.current) return;
+    submitLockRef.current = true;
+    recognitionRef.current?.stop();
+    stopAudioVisualizer();
+    setIsListening(false);
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
     setSubmitting(true);
     try {
-      await interviewApi.submit(id, currentTurn.id, transcript);
+      await interviewApi.submit(id, turn.id, transcriptRef.current);
       await fetchTurnData();
     } catch (err) {
+      submitLockRef.current = false;
       alert(err.response?.data?.message || 'Lỗi gửi câu trả lời');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleAutoSubmit = () => {
-    if (currentTurn && !submitting) {
-      handleSubmit();
-    }
+  const handleSubmit = (e) => {
+    e?.preventDefault();
+    submitCurrentAnswer();
   };
 
   const handleAbort = async () => {
@@ -293,7 +350,7 @@ export default function InterviewRoomPage() {
                 title="Đọc to câu hỏi"
               >
                 <Volume2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Phát âm</span>
+                <span className="hidden sm:inline">Nghe lại câu hỏi</span>
               </button>
             </div>
 
@@ -334,12 +391,23 @@ export default function InterviewRoomPage() {
               </button>
             </div>
 
+            <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-cyan-300">
+              <AudioLines className="w-4 h-4" />
+              {submitting ? 'AI đang phân tích câu trả lời...' : isSpeaking ? 'Giám khảo AI đang nói...' : isListening ? 'Đang lắng nghe câu trả lời...' : 'Sẵn sàng nhận câu trả lời'}
+            </div>
+            {isListening && (
+              <div aria-label="Mức âm lượng micro" className="h-10 flex items-center justify-center gap-1 rounded-lg bg-slate-950">
+                {Array.from({ length: 20 }, (_, i) => (
+                  <span key={i} className="w-1 rounded bg-cyan-400 transition-all duration-75"
+                    style={{ height: `${Math.max(4, Math.min(36, micLevel * (0.25 + ((i * 7) % 11) / 10)))}px` }} />
+                ))}
+              </div>
+            )}
             <textarea
               rows="5"
               value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
+              onChange={(e) => { transcriptRef.current = e.target.value; setTranscript(e.target.value); }}
               placeholder="Bạn có thể nói qua Micro (hệ thống sẽ tự nhận dạng thành văn bản) hoặc gõ trực tiếp câu trả lời vào đây..."
-              required
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:outline-none focus:border-cyan-500 text-sm leading-relaxed"
             />
 
