@@ -41,11 +41,47 @@ export default function InterviewRoomPage() {
 
   // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
+  const [voices, setVoices] = useState([]);
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
 
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
   useEffect(() => { turnRef.current = currentTurn; submitLockRef.current = false; }, [currentTurn?.id]);
+
+  // Load available voices & listen to voiceschanged event
+  useEffect(() => {
+    const updateVoices = () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          setVoices(v);
+        }
+      }
+    };
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  const getVietnameseVoice = (availableVoices) => {
+    const list = availableVoices && availableVoices.length > 0 ? availableVoices : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
+    if (!list || list.length === 0) return null;
+    const exact = list.find(v => v.lang.toLowerCase() === 'vi-vn');
+    if (exact) return exact;
+    const viPrefix = list.find(v => v.lang.toLowerCase().startsWith('vi'));
+    if (viPrefix) return viPrefix;
+    const nameMatch = list.find(v => {
+      const n = (v.name + ' ' + v.lang).toLowerCase();
+      return n.includes('vietnam') || n.includes('tiếng việt') || n.includes('hoaimy') || n.includes('namminh') || n.includes('an');
+    });
+    return nameMatch || null;
+  };
 
   const fetchTurnData = async () => {
     try {
@@ -136,11 +172,20 @@ export default function InterviewRoomPage() {
 
       recognizer.onresult = (event) => {
         let finalTrans = '';
+        let interimTrans = '';
         for (let i = 0; i < event.results.length; i++) {
-          finalTrans += event.results[i][0].transcript + ' ';
+          const res = event.results[i];
+          if (res.isFinal) {
+            finalTrans += res[0].transcript + ' ';
+          } else {
+            interimTrans += res[0].transcript;
+          }
         }
-        transcriptRef.current = finalTrans.trim();
-        setTranscript(finalTrans.trim());
+        const full = (finalTrans + interimTrans).trim();
+        if (full) {
+          transcriptRef.current = full;
+          setTranscript(full);
+        }
       };
 
       recognizer.onerror = (e) => {
@@ -185,13 +230,24 @@ export default function InterviewRoomPage() {
     if (!currentTurn?.questionText || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(currentTurn.questionText);
-    utterance.lang = speechLang;
-    utterance.rate = 0.95;
+    const targetLang = speechLang || 'vi-VN';
+    utterance.lang = targetLang;
+    utterance.rate = 0.92;
+
+    const viVoice = getVietnameseVoice(voices);
+    if (viVoice) {
+      utterance.voice = viVoice;
+    }
+
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = (e) => {
+      console.warn('SpeechSynthesis error:', e);
+      setIsSpeaking(false);
+    };
     window.speechSynthesis.speak(utterance);
   };
+
 
   const submitCurrentAnswer = async () => {
     const turn = turnRef.current;
@@ -367,28 +423,31 @@ export default function InterviewRoomPage() {
                 Câu trả lời của bạn:
               </span>
 
-              {/* Microphone Toggle */}
-              <button
-                type="button"
-                onClick={toggleMic}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                  isListening
-                    ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/30'
-                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
-                }`}
-              >
-                {isListening ? (
-                  <>
-                    <Mic className="w-4 h-4" />
-                    Đang ghi âm (Bấm dừng)...
-                  </>
-                ) : (
-                  <>
-                    <MicOff className="w-4 h-4 text-slate-400" />
-                    Bật Micro trả lời bằng giọng nói
-                  </>
-                )}
-              </button>
+              {/* Controls: Sample Answer & Microphone Toggle */}
+              <div className="flex items-center gap-2">
+
+                <button
+                  type="button"
+                  onClick={toggleMic}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                    isListening
+                      ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {isListening ? (
+                    <>
+                      <Mic className="w-4 h-4" />
+                      Đang ghi âm (Bấm dừng)...
+                    </>
+                  ) : (
+                    <>
+                      <MicOff className="w-4 h-4 text-slate-400" />
+                      Bật Micro trả lời
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-cyan-300">
