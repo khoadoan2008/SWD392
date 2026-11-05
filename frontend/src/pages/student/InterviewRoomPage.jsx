@@ -15,7 +15,12 @@ import {
   HelpCircle, 
   User, 
   Loader2,
-  AudioLines
+  AudioLines,
+  Award,
+  BookOpen,
+  FileText,
+  MessageSquare,
+  GraduationCap
 } from 'lucide-react';
 import { pickVoice, speechRate } from '../../utils/speech';
 
@@ -328,35 +333,226 @@ export default function InterviewRoomPage() {
     );
   }
 
-  // Session Completed Screen
+  // Session Completed / Result Screen
   if (sessionData && sessionData.status === 'COMPLETED') {
+    const isGraded = sessionData.finalScore != null;
+    const turns = sessionData.turns || [];
+    const rubricScores = sessionData.rubricScores || [];
+
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12 text-center space-y-6">
-        <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/20">
-          <CheckCircle2 className="w-10 h-10" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        {/* Navigation & Header */}
+        <div className="flex items-center justify-between">
+          <Link
+            to="/student/interview"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-all text-xs font-semibold"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Về danh sách môn thi
+          </Link>
+
+          <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-semibold">
+            Buổi thi #{sessionData.id} • Đã hoàn thành
+          </span>
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-            Chúc mừng bạn đã hoàn thành buổi thi vấn đáp!
-          </h1>
-          <p className="text-slate-400 text-sm">
-            Môn thi: <strong className="text-white font-mono">{sessionData.subject?.code} - {sessionData.subject?.name}</strong>
-          </p>
-          <p className="text-xs text-slate-500">
-            Biên bản ghi nhận câu trả lời đã được gửi đến giảng viên bộ môn để đánh giá kết quả theo Rubric.
-          </p>
+        {/* Big Scorecard Banner */}
+        <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/70 border border-slate-800 p-6 sm:p-8 shadow-2xl space-y-6 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-800">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold">
+                <BookOpen className="w-3.5 h-3.5" />
+                {sessionData.subject?.code} - {sessionData.subject?.name}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                Kết quả Buổi thi Vấn đáp
+              </h1>
+              <p className="text-xs text-slate-400">
+                Thí sinh: <span className="text-white font-medium">{sessionData.student?.fullName} ({sessionData.student?.studentCode || sessionData.student?.username})</span>
+                {sessionData.endedAt && ` • Hoàn thành: ${new Date(sessionData.endedAt).toLocaleString('vi-VN')}`}
+              </p>
+            </div>
+
+            {/* Score Highlight Box */}
+            <div className="flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl bg-slate-950/80 border border-slate-800 shrink-0 min-w-[200px]">
+              {isGraded ? (
+                <>
+                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5 mb-1">
+                    <Award className="w-4 h-4" />
+                    Điểm chính thức
+                  </div>
+                  <div className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight font-mono">
+                    {sessionData.finalScore}
+                    <span className="text-lg text-slate-500 font-normal"> / 10</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-1">
+                    {sessionData.gradedBy?.fullName ? `Chấm bởi: ${sessionData.gradedBy.fullName}` : 'Giảng viên đã chốt điểm'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 mb-1">
+                    <Clock className="w-4 h-4" />
+                    Đang chấm điểm
+                  </div>
+                  <div className="text-2xl font-bold text-amber-400 tracking-tight font-mono py-2">
+                    Chờ giảng viên
+                  </div>
+                  {sessionData.aiSuggestedScore != null && (
+                    <span className="text-[11px] text-slate-400 text-center">
+                      AI gợi ý sơ bộ: <strong className="text-cyan-400 font-mono">{sessionData.aiSuggestedScore}/10</strong>
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Lecturer Official Feedback */}
+          {sessionData.lecturerFeedback && (
+            <div className="p-4 sm:p-5 rounded-xl bg-slate-950 border border-indigo-500/20 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                <MessageSquare className="w-4 h-4" />
+                Nhận xét &amp; Đánh giá của Giảng viên:
+              </div>
+              <p className="text-sm text-slate-200 leading-relaxed italic pl-3 border-l-2 border-indigo-500/50">
+                "{sessionData.lecturerFeedback}"
+              </p>
+              {sessionData.gradedAt && (
+                <p className="text-[11px] text-slate-500 text-right">
+                  Cập nhật lúc: {new Date(sessionData.gradedAt).toLocaleString('vi-VN')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* AI Feedback (if available and not yet graded or as supplemental) */}
+          {sessionData.aiFeedback && (
+            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1.5 text-xs text-slate-400">
+              <div className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                <BrainCircuit className="w-3.5 h-3.5" />
+                Ghi chú đối soát AI (Tham khảo):
+              </div>
+              <p className="leading-relaxed">{sessionData.aiFeedback}</p>
+            </div>
+          )}
         </div>
 
-        <div className="pt-4 flex justify-center gap-4">
+        {/* Rubric Criteria Score Breakdown */}
+        {rubricScores.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Award className="w-4 h-4 text-cyan-400" />
+              Chi tiết đánh giá theo Barem Rubric môn học ({rubricScores.length} tiêu chí)
+            </h2>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="bg-slate-950 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th className="px-5 py-3">Tiêu chí đánh giá</th>
+                    <th className="px-5 py-3 text-center">Trọng số</th>
+                    <th className="px-5 py-3 text-center">Điểm đạt</th>
+                    <th className="px-5 py-3">Đánh giá chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800 text-xs">
+                  {rubricScores.map((r, idx) => (
+                    <tr key={r.id || idx} className="hover:bg-slate-850/50">
+                      <td className="px-5 py-3 font-medium text-white max-w-xs">
+                        {r.criterion}
+                        {r.keywords && (
+                          <span className="block text-[11px] text-slate-500 mt-0.5">
+                            Từ khóa: {r.keywords}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-center font-mono font-bold text-slate-400">
+                        {r.maxScore}đ
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <span className="inline-block px-2.5 py-1 rounded-lg font-mono font-bold text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {r.finalScore != null ? r.finalScore : (r.aiScore != null ? r.aiScore : '—')}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-slate-300 italic">
+                        {r.comment || 'Không có ghi chú thêm.'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Question & Answer Transcript History */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-400" />
+            Biên bản câu hỏi &amp; câu trả lời của bạn ({turns.length} lượt)
+          </h2>
+
+          <div className="space-y-4">
+            {turns.length === 0 ? (
+              <p className="text-xs text-slate-500 italic">Không tìm thấy dữ liệu lượt thi.</p>
+            ) : (
+              turns.map((t, idx) => (
+                <div key={t.id || idx} className="p-4 sm:p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border ${
+                      t.isFollowUp || t.turnType === 'FOLLOW_UP'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                    }`}>
+                      {t.isFollowUp || t.turnType === 'FOLLOW_UP'
+                        ? `AI Hỏi xoáy (Follow-up #${t.followupIndex})`
+                        : `Câu hỏi chính #${t.mainIndex}`}
+                    </span>
+                    {t.responseTimeSec != null && (
+                      <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Thời gian: {t.responseTimeSec}s
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                      Câu hỏi:
+                    </h4>
+                    <p className="text-sm font-medium text-white leading-relaxed">
+                      {t.questionText}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-850">
+                    <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5" />
+                      Câu trả lời của bạn:
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed italic bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                      {t.transcript ? `"${t.transcript}"` : '(Thí sinh không ghi nhận câu trả lời)'}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="pt-2 flex justify-center gap-4">
           <Link
             to="/student/interview"
             className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all inline-flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Về trang chủ sinh viên
+            Về trang danh sách môn thi
           </Link>
         </div>
+
       </div>
     );
   }

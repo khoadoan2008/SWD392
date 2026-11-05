@@ -11,7 +11,8 @@ import {
   Mic, 
   CheckCircle2, 
   AlertCircle, 
-  Loader2 
+  Loader2,
+  Award
 } from 'lucide-react';
 
 export default function InterviewHomePage() {
@@ -207,6 +208,7 @@ export default function InterviewHomePage() {
                   <th className="px-5 py-3">Mã lượt</th>
                   <th className="px-5 py-3">Môn học</th>
                   <th className="px-5 py-3">Trạng thái</th>
+                  <th className="px-5 py-3">Điểm số &amp; Đánh giá</th>
                   <th className="px-5 py-3">Thời gian thi</th>
                   <th className="px-5 py-3 text-right">Chi tiết</th>
                 </tr>
@@ -227,15 +229,45 @@ export default function InterviewHomePage() {
                         {h.status === 'COMPLETED' ? 'Hoàn thành' : h.status === 'IN_PROGRESS' ? 'Đang thi' : 'Đã huỷ'}
                       </span>
                     </td>
+                    <td className="px-5 py-3">
+                      {h.status === 'COMPLETED' ? (
+                        h.finalScore != null ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 w-fit">
+                              <Award className="w-3.5 h-3.5" />
+                              {h.finalScore} / 10.0
+                            </span>
+                            {h.lecturerFeedback && (
+                              <span className="text-[11px] text-slate-400 truncate max-w-[200px]" title={h.lecturerFeedback}>
+                                "{h.lecturerFeedback}"
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 w-fit">
+                              Chờ GV chấm điểm
+                            </span>
+                            {h.aiSuggestedScore != null && (
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                AI gợi ý: {h.aiSuggestedScore}đ
+                              </span>
+                            )}
+                          </div>
+                        )
+                      ) : (
+                        <span className="text-xs text-slate-500">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-xs text-slate-400">
                       {h.startedAt ? new Date(h.startedAt).toLocaleString('vi-VN') : '—'}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link
                         to={`/student/interview/${h.id}`}
-                        className="text-xs font-semibold text-cyan-400 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-white transition-all border border-slate-700 hover:border-slate-600"
                       >
-                        {h.status === 'IN_PROGRESS' ? 'Tiếp tục thi →' : 'Xem lại →'}
+                        {h.status === 'IN_PROGRESS' ? 'Tiếp tục thi →' : 'Xem kết quả & Barem →'}
                       </Link>
                     </td>
                   </tr>
