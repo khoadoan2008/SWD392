@@ -50,7 +50,7 @@ public class GeminiAdaptiveFollowUpGenerator implements FollowUpGenerator {
                 java.util.Map.of("parts", List.of(java.util.Map.of("text", prompt.toString())))),
                 "generationConfig", java.util.Map.of("temperature", 0.25, "maxOutputTokens", 180,
                     "responseMimeType", "application/json")));
-            String raw = new GeminiHttpTransport(configuration.getModel(), configuration.getFallbackModel()).post(body, configuration.getApiKey());
+            String raw = GeminiHttpTransport.interactive(configuration.getModel(), configuration.getFallbackModels()).post(body, configuration.getApiKey());
             JsonNode response = mapper.readTree(raw);
             JsonNode parts = response.path("candidates").path(0).path("content").path("parts");
             if (!parts.isArray() || parts.isEmpty()) return fallback.generate(mainQuestionText, rubrics, thread);

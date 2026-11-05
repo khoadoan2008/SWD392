@@ -15,12 +15,13 @@ public class AiConfigurationTest {
             assertThrows(IllegalArgumentException.class,()->new AiConfiguration("fake",model));
         }
     }
-    @Test public void fallbackModelDefaultsAndCanBeDisabled() {
-        assertEquals("gemini-3.5-flash", new AiConfiguration("fake", null).getFallbackModel());
-        assertEquals("gemini-3.7-flash", new AiConfiguration("fake", null, "gemini-3.7-flash").getFallbackModel());
-        assertNull(new AiConfiguration("fake", null, "none").getFallbackModel());
-        assertNull(new AiConfiguration("fake", "gemini-3.5-flash", "gemini-3.5-flash").getFallbackModel());
-        assertThrows(IllegalArgumentException.class, () -> new AiConfiguration("fake", null, "https://evil.test"));
+    @Test public void fallbackModelsDefaultParseAndCanBeDisabled() {
+        assertEquals(java.util.List.of("gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"), new AiConfiguration("fake", null).getFallbackModels());
+        assertEquals(java.util.List.of("gemini-3.7-flash", "gemini-3.5-flash-lite"),
+                new AiConfiguration("fake", null, " gemini-3.7-flash, ,gemini-3.5-flash-lite,gemini-3.7-flash ").getFallbackModels());
+        assertTrue(new AiConfiguration("fake", null, "none").getFallbackModels().isEmpty());
+        assertEquals(java.util.List.of("gemini-3.6-flash"), new AiConfiguration("fake", "gemini-3.5-flash", "gemini-3.5-flash,gemini-3.6-flash").getFallbackModels());
+        assertThrows(IllegalArgumentException.class, () -> new AiConfiguration("fake", null, "gemini-3.5-flash,https://evil.test"));
     }
     @Test public void acceptsExplicitGeminiModel() {
         assertEquals("gemini-3.8-flash",new AiConfiguration("fake","gemini-3.8-flash").getModel());

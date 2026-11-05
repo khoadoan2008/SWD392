@@ -50,7 +50,7 @@ public class AiGradingService {
             InterviewTurnRepository turnRepository) {
         this(aiConfiguration,
                 aiConfiguration != null
-                        ? new GeminiHttpTransport(aiConfiguration.getModel(), aiConfiguration.getFallbackModel())
+                        ? new GeminiHttpTransport(aiConfiguration.getModel(), aiConfiguration.getFallbackModels())
                         : new GeminiHttpTransport(AiConfiguration.DEFAULT_MODEL),
                 rubricRepository,
                 sessionRubricScoreRepository,

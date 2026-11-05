@@ -9,6 +9,8 @@ import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,7 +28,7 @@ public class GeminiHttpTransportTest {
         assertNull(connection.getRequestProperty("Authorization"));
         assertFalse(connection.getInstanceFollowRedirects());
         assertEquals("POST",connection.getRequestMethod());
-        assertEquals(10000,connection.getConnectTimeout()); assertEquals(90000,connection.getReadTimeout());
+        assertEquals(10000,connection.getConnectTimeout()); assertEquals(60000,connection.getReadTimeout());
         assertFalse(new String(connection.sent.toByteArray(),StandardCharsets.UTF_8).contains("fake-secret"));
         assertTrue(connection.disconnected);
     }
@@ -48,39 +50,78 @@ public class GeminiHttpTransportTest {
         assertThrows(GenerationException.class,()->new GeminiHttpTransport(null,url->connection).post("{}","fake"));
         assertTrue(connection.disconnected);
     }
-    @Test public void overloadedModelIsRetriedThenFallsBackToSecondModel() throws Exception {
-        java.util.List<String> paths = new java.util.ArrayList<>();
-        java.util.List<Long> waits = new java.util.ArrayList<>();
-        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash", url -> {
+    private static final int TIMEOUT = -1;
+    private static final List<String> FALLBACKS = List.of("gemini-3.5-flash", "gemini-3.6-flash");
+    private static GeminiHttpTransport transport(GeminiHttpTransport.ConnectionFactory factory, List<Long> waits, long[] clock) {
+        return new GeminiHttpTransport("gemini-3.8-flash", FALLBACKS, factory, waits::add, () -> clock[0], 2, 100_000);
+    }
+    @Test public void overloadedModelFallsBackToNextModelImmediately() throws Exception {
+        List<String> paths = new ArrayList<>(); List<Long> waits = new ArrayList<>();
+        GeminiHttpTransport t = transport(url -> {
             paths.add(url.getPath());
             return url.getPath().contains("gemini-3.5-flash") ? fake(200, "{\"ok\":true}") : fake(503, "busy");
-        }, waits::add);
-        assertEquals("{\"ok\":true}", transport.post("{}", "fake"));
-        assertEquals(java.util.List.of(
-                "/v1beta/models/gemini-3.8-flash:generateContent",
-                "/v1beta/models/gemini-3.8-flash:generateContent",
-                "/v1beta/models/gemini-3.5-flash:generateContent"), paths);
-        assertEquals(java.util.List.of(GeminiHttpTransport.RETRY_DELAY_MS), waits);
+        }, waits, new long[]{0});
+        assertEquals("{\"ok\":true}", t.post("{}", "fake"));
+        assertEquals(List.of("/v1beta/models/gemini-3.8-flash:generateContent", "/v1beta/models/gemini-3.5-flash:generateContent"), paths);
+        assertTrue(waits.isEmpty());
     }
-    @Test public void transientErrorRecoversOnRetryWithoutFallback() throws Exception {
-        int[] calls = {0};
-        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
-                url -> ++calls[0] == 1 ? fake(500, "x") : fake(200, "{}"), millis -> { });
-        assertEquals("{}", transport.post("{}", "fake"));
-        assertEquals(2, calls[0]);
+    @Test public void slowModelFallsBackToNextModel() throws Exception {
+        List<String> paths = new ArrayList<>();
+        GeminiHttpTransport t = transport(url -> {
+            paths.add(url.getPath());
+            if (url.getPath().contains("gemini-3.8-flash")) throw new SocketTimeoutException();
+            return fake(200, "{}");
+        }, new ArrayList<>(), new long[]{0});
+        assertEquals("{}", t.post("{}", "fake"));
+        assertEquals(2, paths.size());
+    }
+    @Test public void secondPassRetriesAfterShortDelay() throws Exception {
+        int[] calls = {0}; List<Long> waits = new ArrayList<>();
+        GeminiHttpTransport t = transport(url -> ++calls[0] <= 3 ? fake(503, "busy") : fake(200, "{}"), waits, new long[]{0});
+        assertEquals("{}", t.post("{}", "fake"));
+        assertEquals(4, calls[0]);
+        assertEquals(List.of(GeminiHttpTransport.RETRY_DELAY_MS), waits);
+    }
+    @Test public void totalTimeBudgetLimitsAttemptsAndTimeouts() {
+        long[] clock = {0}; List<FakeConnection> opened = new ArrayList<>();
+        GeminiHttpTransport t = transport(url -> {
+            FakeConnection c = fake(TIMEOUT, ""); opened.add(c);
+            clock[0] += opened.size() == 1 ? 60_000 : 40_000;
+            return c;
+        }, new ArrayList<>(), clock);
+        GenerationException error = assertThrows(GenerationException.class, () -> t.post("{}", "fake"));
+        assertTrue(error.getMessage().contains("quá lâu"));
+        assertEquals(2, opened.size());
+        assertEquals(60_000, opened.get(0).getReadTimeout());
+        assertEquals(40_000, opened.get(1).getReadTimeout());
     }
     @Test public void allModelsOverloadedGivesClearMessage() {
-        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
-                url -> fake(503, "busy"), millis -> { });
-        GenerationException error = assertThrows(GenerationException.class, () -> transport.post("{}", "fake"));
+        GeminiHttpTransport t = transport(url -> fake(503, "busy"), new ArrayList<>(), new long[]{0});
+        GenerationException error = assertThrows(GenerationException.class, () -> t.post("{}", "fake"));
         assertTrue(error.getMessage().contains("quá tải"));
         assertFalse(error.getMessage().contains("busy"));
     }
+    @Test public void retiredModelIsSkippedAndAllMissingIsReported() throws Exception {
+        GeminiHttpTransport t = transport(url -> url.getPath().contains("gemini-3.6-flash") ? fake(200, "{}") : fake(404, "gone"),
+                new ArrayList<>(), new long[]{0});
+        assertEquals("{}", t.post("{}", "fake"));
+        GeminiHttpTransport missing = transport(url -> fake(404, "gone"), new ArrayList<>(), new long[]{0});
+        assertTrue(assertThrows(GenerationException.class, () -> missing.post("{}", "fake")).getMessage().contains("Không tìm thấy model"));
+    }
+    @Test public void interactiveModeIsSinglePassWithShortBudget() {
+        List<FakeConnection> opened = new ArrayList<>(); List<Long> waits = new ArrayList<>();
+        GeminiHttpTransport t = new GeminiHttpTransport("gemini-3.8-flash", FALLBACKS,
+                url -> { FakeConnection c = fake(503, "busy"); opened.add(c); return c; }, waits::add,
+                () -> 0L, 1, GeminiHttpTransport.INTERACTIVE_BUDGET_MS);
+        assertThrows(GenerationException.class, () -> t.post("{}", "fake"));
+        assertEquals(3, opened.size());
+        assertTrue(waits.isEmpty());
+        assertEquals(20_000, opened.get(0).getReadTimeout());
+    }
     @Test public void clientErrorsAreNotRetried() {
         int[] calls = {0};
-        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
-                url -> { calls[0]++; return fake(429, "quota"); }, millis -> { });
-        assertThrows(GenerationException.class, () -> transport.post("{}", "fake"));
+        GeminiHttpTransport t = transport(url -> { calls[0]++; return fake(429, "quota"); }, new ArrayList<>(), new long[]{0});
+        assertThrows(GenerationException.class, () -> t.post("{}", "fake"));
         assertEquals(1, calls[0]);
     }
     private static FakeConnection fake(int status, String body) {
@@ -102,7 +143,7 @@ public class GeminiHttpTransportTest {
         @Override public void connect() { }
         @Override public boolean usingProxy() { return false; }
         @Override public void disconnect() { disconnected=true; }
-        @Override public int getResponseCode() { return code; }
+        @Override public int getResponseCode() throws IOException { if (code == TIMEOUT) throw new SocketTimeoutException(); return code; }
         @Override public OutputStream getOutputStream() { return sent; }
         @Override public InputStream getInputStream() throws IOException { inputRead=true; return new ByteArrayInputStream(reply); }
         @Override public InputStream getErrorStream() { throw new AssertionError("Provider errors must not be read/logged"); }
