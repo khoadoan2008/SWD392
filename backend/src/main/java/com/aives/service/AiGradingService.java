@@ -29,6 +29,7 @@ public class AiGradingService {
     public static final String SOURCE_GEMINI = "GEMINI";
     public static final String SOURCE_RULE_BASED = "RULE_BASED";
     public static final String SOURCE_NO_RUBRIC = "NO_RUBRIC";
+    public static final String SOURCE_NO_ANSWER = "NO_ANSWER";
 
     /** Điểm tổng (AI đề xuất và điểm chốt) đều quy về thang 10. */
     private static final BigDecimal SCALE_MAX = BigDecimal.TEN;
@@ -99,7 +100,11 @@ public class AiGradingService {
         GradingResult result = null;
         String source = SOURCE_RULE_BASED;
         String geminiError = null;
-        if (aiConfiguration != null && aiConfiguration.isConfigured()) {
+        boolean hasAnswers = turns.stream().anyMatch(t -> t.getTranscript() != null && !t.getTranscript().isBlank());
+        if (!hasAnswers) {
+            result = evaluateWithRuleBased(rubrics, turns, null);
+            source = SOURCE_NO_ANSWER;
+        } else if (aiConfiguration != null && aiConfiguration.isConfigured()) {
             try {
                 result = evaluateWithGemini(session, rubrics, turns);
                 source = SOURCE_GEMINI;
@@ -347,6 +352,18 @@ public class AiGradingService {
             }
         }
 
+        if (answeredCount == 0) {
+            Map<Integer, RubricItemEvaluation> emptyEvaluations = new HashMap<>();
+            for (Rubric rubric : rubrics) {
+                emptyEvaluations.put(rubric.getId(), new RubricItemEvaluation(BigDecimal.ZERO,
+                        "Sinh viên không trả lời (bỏ trống). Không có nội dung để đánh giá tiêu chí này."));
+            }
+            String feedback = totalTurns == 0
+                    ? "Không có lượt hỏi đáp hoặc nội dung trả lời được ghi nhận để đánh giá."
+                    : String.format("Sinh viên không trả lời (bỏ trống) cả %d/%d lượt hỏi. Không có nội dung để đánh giá kiến thức theo rubric.", totalTurns, totalTurns);
+            return new GradingResult(feedback, emptyEvaluations);
+        }
+
         String fullText = allAnswers.toString();
         Map<Integer, RubricItemEvaluation> evalMap = new HashMap<>();
         List<String> strengths = new ArrayList<>();
@@ -401,7 +418,7 @@ public class AiGradingService {
         }
 
         String overall = String.format(
-                "[Chấm dự phòng theo từ khoá – Gemini chưa phản hồi%s] Sinh viên hoàn thành %d/%d lượt trả lời. %s %s",
+                "[Chấm dự phòng theo từ khoá – Gemini chưa phản hồi%s] Sinh viên có nội dung trả lời ở %d/%d lượt hỏi. %s %s",
                 geminiError != null ? ": " + geminiError : "",
                 answeredCount,
                 totalTurns,
