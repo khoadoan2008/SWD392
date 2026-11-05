@@ -4,6 +4,7 @@ import com.aives.dto.request.RubricRequest;
 import com.aives.dto.response.RubricResponse;
 import com.aives.model.entity.Rubric;
 import com.aives.model.entity.Subject;
+import com.aives.model.entity.User;
 import com.aives.repository.RubricRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,8 @@ public class RubricService {
     }
 
     @Transactional
-    public RubricResponse createRubric(Integer subjectId, RubricRequest request) {
+    public RubricResponse createRubric(User actor, Integer subjectId, RubricRequest request) {
+        requireAssigned(actor, subjectId);
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
 
@@ -51,9 +53,11 @@ public class RubricService {
     }
 
     @Transactional
-    public RubricResponse updateRubric(Integer id, Integer subjectId, RubricRequest request) {
+    public RubricResponse updateRubric(User actor, Integer id, Integer subjectId, RubricRequest request) {
         Rubric rubric = rubricRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tiêu chí Rubric ID: " + id));
+        if (rubric.getSubject() != null) requireAssigned(actor, rubric.getSubject().getId());
+        requireAssigned(actor, subjectId);
 
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy môn học ID: " + subjectId));
@@ -75,10 +79,17 @@ public class RubricService {
     }
 
     @Transactional
-    public void deleteRubric(Integer id) {
-        if (!rubricRepository.existsById(id)) {
-            throw new IllegalArgumentException("Không tìm thấy tiêu chí Rubric ID: " + id);
-        }
-        rubricRepository.deleteById(id);
+    public void deleteRubric(User actor, Integer id) {
+        Rubric rubric = rubricRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tiêu chí Rubric ID: " + id));
+        if (rubric.getSubject() != null) requireAssigned(actor, rubric.getSubject().getId());
+        rubricRepository.delete(rubric);
+    }
+
+    private void requireAssigned(User actor, Integer subjectId) {
+        if (actor == null || actor.isAdmin()) return;
+        boolean assigned = subjectRepository.findByLecturerId(actor.getId()).stream()
+                .anyMatch(s -> s.getId().equals(subjectId));
+        if (!assigned) throw new SecurityException("Bạn không được phân công giảng dạy môn học này.");
     }
 }

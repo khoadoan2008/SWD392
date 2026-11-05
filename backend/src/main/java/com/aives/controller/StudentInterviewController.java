@@ -50,8 +50,10 @@ public class StudentInterviewController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Integer id,
             @Valid @RequestBody SubmitAnswerRequest request) {
-        interviewService.submitAnswer(id, request.getTurnId(), request.getTranscript(), principal.getUser());
-        return ResponseEntity.ok(ApiResponse.successMsg("Đã nộp câu trả lời thành công"));
+        boolean accepted = interviewService.submitAnswer(id, request.getTurnId(), request.getTranscript(), principal.getUser());
+        return ResponseEntity.ok(ApiResponse.successMsg(accepted
+                ? "Đã nộp câu trả lời thành công"
+                : "Đã hết thời gian trả lời, câu trả lời gửi muộn không được ghi nhận"));
     }
 
     @PostMapping("/{id}/abort")

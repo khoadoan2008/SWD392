@@ -37,6 +37,8 @@ public interface QuestionRepository extends JpaRepository<Question, Integer> {
     @Query("SELECT q FROM Question q WHERE q.subject.id = :subjectId AND q.status = com.aives.model.enums.QuestionStatus.APPROVED ORDER BY FUNCTION('RANDOM')")
     List<Question> findRandomApprovedBySubject(@Param("subjectId") Integer subjectId, Pageable pageable);
 
+    boolean existsBySubjectId(Integer subjectId);
+
     List<Question> findBySubjectIdAndStatusOrderByIdDesc(Integer subjectId, QuestionStatus status);
 
     @Query("SELECT q.content FROM Question q WHERE q.subject.id = :subjectId")

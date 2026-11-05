@@ -55,7 +55,6 @@ public class InterviewService {
             }
         }
 
-        // If in-progress session exists, return it
         Optional<InterviewSession> existing = sessionRepository
                 .findFirstByStudentIdAndSubjectIdAndStatusOrderByIdDesc(student.getId(), subjectId, SessionStatus.IN_PROGRESS);
         if (existing.isPresent()) {
@@ -151,14 +150,17 @@ public class InterviewService {
         );
     }
 
+    // Cho phép trễ tối đa 15 giây do độ trễ mạng và nhận dạng giọng nói khi tự nộp lúc hết giờ.
+    static final int ANSWER_GRACE_SEC = 15;
+
     @Transactional
-    public void submitAnswer(Integer sessionId, Integer turnId, String transcript, User student) {
+    public boolean submitAnswer(Integer sessionId, Integer turnId, String transcript, User student) {
         InterviewSession session = getSessionById(sessionId);
         if (!session.getStudent().getId().equals(student.getId())) {
             throw new SecurityException("Bạn không có quyền gửi câu trả lời cho lượt thi này.");
         }
         if (session.getStatus() != SessionStatus.IN_PROGRESS) {
-            return;
+            return true;
         }
 
         InterviewTurn current = turnRepository.findById(turnId)
@@ -167,19 +169,20 @@ public class InterviewService {
             throw new IllegalArgumentException("Lượt câu hỏi không thuộc về phiên thi này.");
         }
         if (current.getAnsweredAt() != null) {
-            return;
+            return true;
         }
 
         LocalDateTime now = LocalDateTime.now();
-        current.setTranscript(transcript);
+        Integer elapsed = current.getAskedAt() == null ? null
+                : (int) Duration.between(current.getAskedAt(), now).getSeconds();
+        boolean late = elapsed != null && session.getAnswerTimeLimitSec() != null
+                && elapsed > session.getAnswerTimeLimitSec() + ANSWER_GRACE_SEC;
+        current.setTranscript(late ? null : transcript);
         current.setAnsweredAt(now);
-        if (current.getAskedAt() != null) {
-            current.setResponseTimeSec((int) Duration.between(current.getAskedAt(), now).getSeconds());
-        }
+        current.setResponseTimeSec(elapsed);
         turnRepository.save(current);
 
-        // Check if follow-up question should be triggered
-        if (current.getFollowupIndex() < session.getMaxFollowups()) {
+        if (!late && current.getFollowupIndex() < session.getMaxFollowups()) {
             List<InterviewTurn> allTurns = turnRepository.findBySessionIdOrderByMainIndexAscFollowupIndexAsc(sessionId);
             List<InterviewTurn> thread = new ArrayList<>();
             InterviewTurn mainTurn = null;
@@ -213,13 +216,13 @@ public class InterviewService {
             }
         }
 
-        // Check if there are any remaining unanswered turns
         if (turnRepository.findCurrentTurn(sessionId).isEmpty()) {
             session.setStatus(SessionStatus.COMPLETED);
             session.setEndedAt(LocalDateTime.now());
             session = sessionRepository.save(session);
             aiGradingTrigger.gradeAfterCommit(session.getId());
         }
+        return !late;
     }
 
     @Transactional

@@ -16,6 +16,8 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
     Optional<InterviewSession> findFirstByStudentIdAndSubjectIdAndStatusOrderByIdDesc(
             Integer studentId, Integer subjectId, SessionStatus status);
 
+    boolean existsBySubjectId(Integer subjectId);
+
     List<InterviewSession> findByStudentIdOrderByIdDesc(Integer studentId);
 
     @Query("SELECT s FROM InterviewSession s WHERE " +

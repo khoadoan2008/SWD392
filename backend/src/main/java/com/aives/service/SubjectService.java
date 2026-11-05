@@ -3,6 +3,8 @@ package com.aives.service;
 import com.aives.dto.request.SubjectRequest;
 import com.aives.dto.response.SubjectResponse;
 import com.aives.model.entity.Subject;
+import com.aives.repository.InterviewSessionRepository;
+import com.aives.repository.QuestionRepository;
 import com.aives.repository.SubjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,8 @@ import java.util.List;
 public class SubjectService {
 
     private final SubjectRepository subjectRepository;
+    private final QuestionRepository questionRepository;
+    private final InterviewSessionRepository sessionRepository;
 
     @Transactional(readOnly = true)
     public List<SubjectResponse> getAllSubjects() {
@@ -82,6 +86,9 @@ public class SubjectService {
     public void deleteSubject(Integer id) {
         if (!subjectRepository.existsById(id)) {
             throw new IllegalArgumentException("Không tìm thấy môn học ID: " + id);
+        }
+        if (questionRepository.existsBySubjectId(id) || sessionRepository.existsBySubjectId(id)) {
+            throw new IllegalStateException("Môn học đã có câu hỏi hoặc lượt thi, không thể xoá. Hãy chuyển môn sang trạng thái ngừng hoạt động.");
         }
         subjectRepository.deleteById(id);
     }

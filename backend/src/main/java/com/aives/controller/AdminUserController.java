@@ -6,6 +6,7 @@ import com.aives.dto.response.ApiResponse;
 import com.aives.dto.response.StudentImportResult;
 import com.aives.dto.response.UserResponse;
 import com.aives.model.entity.Role;
+import com.aives.security.UserPrincipal;
 import com.aives.service.StudentImportService;
 import com.aives.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -64,7 +66,12 @@ public class AdminUserController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Integer id) {
+    public ResponseEntity<ApiResponse<Void>> deleteUser(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Integer id) {
+        if (principal != null && principal.getUser().getId().equals(id)) {
+            throw new IllegalArgumentException("Không thể tự xoá tài khoản đang đăng nhập.");
+        }
         userService.deleteUser(id);
         return ResponseEntity.ok(ApiResponse.successMsg("Đã xoá người dùng thành công"));
     }
