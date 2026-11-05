@@ -7,4 +7,12 @@ import java.util.List;
 
 public interface FollowUpGenerator {
     String generate(String mainQuestionText, List<Rubric> rubrics, List<InterviewTurn> thread);
+
+    default String generate(String mainQuestionText, List<Rubric> rubrics, List<InterviewTurn> thread, String language) {
+        return generate(mainQuestionText, rubrics, thread);
+    }
+
+    static boolean isEnglish(String language) {
+        return language != null && language.toLowerCase().startsWith("en");
+    }
 }

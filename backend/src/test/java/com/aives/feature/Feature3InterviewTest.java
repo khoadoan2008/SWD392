@@ -42,7 +42,7 @@ class Feature3InterviewTest extends FeatureTestBase {
             .andExpect(status().isOk());
     }
     void useRuleBasedFollowUps() {
-        when(followUps.generate(any(), any(), any())).thenAnswer(i -> ruleBased.generate(i.getArgument(0), i.getArgument(1), i.getArgument(2)));
+        when(followUps.generate(any(), any(), any(), any())).thenAnswer(i -> ruleBased.generate(i.getArgument(0), i.getArgument(1), i.getArgument(2), i.getArgument(3)));
     }
 
     @Test void startCreatesSessionWithConfiguredMainQuestionsAndLimits() throws Exception {
@@ -120,6 +120,14 @@ class Feature3InterviewTest extends FeatureTestBase {
         assertTrue(data.path("currentTurn").path("questionText").asText().contains("giải thích chi tiết hơn"));
         assertEquals("Có ba tầng", data.path("prevTurn").path("transcript").asText());
     }
+    @Test void followUpUsesConfiguredEnglishLanguage() throws Exception {
+        useRuleBasedFollowUps(); approvedQuestion(subject, "Explain layered architecture"); config(SystemConfig.SPEECH_LANGUAGE, "en-US");
+        int id = start(student); int turnId = current(id, student).path("currentTurn").path("id").asInt();
+        submit(id, turnId, "Three layers");
+        JsonNode data = current(id, student);
+        assertEquals("en-US", data.path("speechLang").asText());
+        assertTrue(data.path("currentTurn").path("questionText").asText().startsWith("Your answer is quite short"));
+    }
     @Test void missingRubricKeywordTriggersProbingFollowUp() throws Exception {
         useRuleBasedFollowUps(); approvedQuestion(subject, "Trình bày REST API");
         rubric(subject, "HTTP methods", "GET,POST,PUT,DELETE", 5);
@@ -135,7 +143,7 @@ class Feature3InterviewTest extends FeatureTestBase {
         assertEquals("MAIN", next.path("turnType").asText()); assertEquals(2, next.path("mainIndex").asInt());
     }
     @Test void followUpsNeverExceedConfiguredMaximum() throws Exception {
-        when(followUps.generate(any(), any(), any())).thenAnswer(i -> "Hỏi xoáy lần " + System.nanoTime());
+        when(followUps.generate(any(), any(), any(), any())).thenAnswer(i -> "Hỏi xoáy lần " + System.nanoTime());
         approvedQuestion(subject, "Câu 1"); config(SystemConfig.MAX_FOLLOWUPS, "2");
         int id = start(student);
         for (int n = 0; n < 5; n++) {

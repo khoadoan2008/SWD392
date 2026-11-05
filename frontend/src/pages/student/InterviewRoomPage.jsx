@@ -17,6 +17,7 @@ import {
   Loader2,
   AudioLines
 } from 'lucide-react';
+import { pickVoice, speechRate } from '../../utils/speech';
 
 export default function InterviewRoomPage() {
   const { id } = useParams();
@@ -43,6 +44,9 @@ export default function InterviewRoomPage() {
   const [isListening, setIsListening] = useState(false);
   const [voices, setVoices] = useState([]);
   const recognitionRef = useRef(null);
+  const speechBaseRef = useRef('');
+  const spokenTurnRef = useRef(null);
+  const listeningTurnRef = useRef(null);
   const timerRef = useRef(null);
 
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
@@ -68,20 +72,6 @@ export default function InterviewRoomPage() {
       }
     };
   }, []);
-
-  const getVietnameseVoice = (availableVoices) => {
-    const list = availableVoices && availableVoices.length > 0 ? availableVoices : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : []);
-    if (!list || list.length === 0) return null;
-    const exact = list.find(v => v.lang.toLowerCase() === 'vi-vn');
-    if (exact) return exact;
-    const viPrefix = list.find(v => v.lang.toLowerCase().startsWith('vi'));
-    if (viPrefix) return viPrefix;
-    const nameMatch = list.find(v => {
-      const n = (v.name + ' ' + v.lang).toLowerCase();
-      return n.includes('vietnam') || n.includes('tiếng việt') || n.includes('hoaimy') || n.includes('namminh') || n.includes('an');
-    });
-    return nameMatch || null;
-  };
 
   const fetchTurnData = async () => {
     try {
@@ -171,6 +161,8 @@ export default function InterviewRoomPage() {
       recognizer.lang = speechLang;
 
       recognizer.onresult = (event) => {
+        if (submitLockRef.current || listeningTurnRef.current == null
+            || listeningTurnRef.current !== turnRef.current?.id) return;
         let finalTrans = '';
         let interimTrans = '';
         for (let i = 0; i < event.results.length; i++) {
@@ -181,8 +173,9 @@ export default function InterviewRoomPage() {
             interimTrans += res[0].transcript;
           }
         }
-        const full = (finalTrans + interimTrans).trim();
-        if (full) {
+        const spoken = (finalTrans + interimTrans).trim();
+        const full = [speechBaseRef.current, spoken].filter(Boolean).join(' ');
+        if (spoken) {
           transcriptRef.current = full;
           setTranscript(full);
         }
@@ -217,6 +210,8 @@ export default function InterviewRoomPage() {
       try {
         window.speechSynthesis?.cancel();
         setIsSpeaking(false);
+        speechBaseRef.current = transcriptRef.current.trim();
+        listeningTurnRef.current = turnRef.current?.id ?? null;
         recognitionRef.current.start();
         setIsListening(true);
         startAudioVisualizer();
@@ -226,17 +221,17 @@ export default function InterviewRoomPage() {
     }
   };
 
-  const handleSpeakQuestion = () => {
-    if (!currentTurn?.questionText || !('speechSynthesis' in window)) return;
+  const speakText = (text) => {
+    if (!text || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(currentTurn.questionText);
+    const utterance = new SpeechSynthesisUtterance(text);
     const targetLang = speechLang || 'vi-VN';
     utterance.lang = targetLang;
-    utterance.rate = 0.92;
+    utterance.rate = speechRate(targetLang);
 
-    const viVoice = getVietnameseVoice(voices);
-    if (viVoice) {
-      utterance.voice = viVoice;
+    const voice = pickVoice(voices.length ? voices : window.speechSynthesis.getVoices(), targetLang);
+    if (voice) {
+      utterance.voice = voice;
     }
 
     utterance.onstart = () => setIsSpeaking(true);
@@ -248,11 +243,21 @@ export default function InterviewRoomPage() {
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleSpeakQuestion = () => speakText(currentTurn?.questionText);
+
+  useEffect(() => {
+    if (!currentTurn?.id || spokenTurnRef.current === currentTurn.id) return;
+    spokenTurnRef.current = currentTurn.id;
+    speechBaseRef.current = '';
+    speakText(currentTurn.questionText);
+  }, [currentTurn?.id]);
+
 
   const submitCurrentAnswer = async () => {
     const turn = turnRef.current;
     if (!turn || submitLockRef.current) return;
     submitLockRef.current = true;
+    listeningTurnRef.current = null;
     recognitionRef.current?.stop();
     stopAudioVisualizer();
     setIsListening(false);

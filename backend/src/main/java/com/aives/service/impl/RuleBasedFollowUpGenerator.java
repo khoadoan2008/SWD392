@@ -14,9 +14,18 @@ public class RuleBasedFollowUpGenerator implements FollowUpGenerator {
     private static final int MIN_WORDS = 8;
     private static final String ASK_MORE =
             "Câu trả lời của bạn còn khá ngắn. Bạn có thể giải thích chi tiết hơn và cho một ví dụ cụ thể không?";
+    private static final String ASK_MORE_EN =
+            "Your answer is quite short. Could you explain in more detail and give a concrete example?";
 
     @Override
     public String generate(String mainQuestionText, List<Rubric> rubrics, List<InterviewTurn> thread) {
+        return generate(mainQuestionText, rubrics, thread, "vi-VN");
+    }
+
+    @Override
+    public String generate(String mainQuestionText, List<Rubric> rubrics, List<InterviewTurn> thread, String language) {
+        boolean english = FollowUpGenerator.isEnglish(language);
+        String askMore = english ? ASK_MORE_EN : ASK_MORE;
         if (thread == null || thread.isEmpty()) {
             return null;
         }
@@ -30,8 +39,8 @@ public class RuleBasedFollowUpGenerator implements FollowUpGenerator {
         String allAnswers = answers.toString().toLowerCase(Locale.ROOT);
         String allAsked = askedQuestions.toString();
 
-        if (wordCount(last.getTranscript()) < MIN_WORDS && !allAsked.contains(ASK_MORE)) {
-            return ASK_MORE;
+        if (wordCount(last.getTranscript()) < MIN_WORDS && !allAsked.contains(askMore)) {
+            return askMore;
         }
 
         if (rubrics != null) {
@@ -51,7 +60,9 @@ public class RuleBasedFollowUpGenerator implements FollowUpGenerator {
                     }
                 }
                 if (!covered) {
-                    return "Bạn chưa đề cập đến trọng tâm \"" + r.getCriterion()
+                    return english
+                            ? "You have not covered \"" + r.getCriterion() + "\" yet. Could you analyse this aspect in more depth?"
+                            : "Bạn chưa đề cập đến trọng tâm \"" + r.getCriterion()
                             + "\". Bạn có thể phân tích sâu hơn về khía cạnh này không?";
                 }
             }

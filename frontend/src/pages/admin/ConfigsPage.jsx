@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { configApi } from '../../api/configApi';
+import { pickVoice, speechRate } from '../../utils/speech';
 import { 
   Settings, 
   Save, 
@@ -70,14 +71,9 @@ export default function ConfigsPage() {
 
     const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.lang = lang;
-    utterance.rate = lang.startsWith('vi') ? 0.95 : 1.0;
+    utterance.rate = speechRate(lang);
 
-    const voices = window.speechSynthesis.getVoices();
-    const langPrefix = lang.split('-')[0].toLowerCase();
-    const matchedVoice =
-      voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ||
-      voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
-      voices.find((v) => v.lang.toLowerCase().includes(langPrefix));
+    const matchedVoice = pickVoice(window.speechSynthesis.getVoices(), lang);
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;

@@ -200,7 +200,8 @@ public class InterviewService {
                         ? rubricRepository.findBySubjectIdOrderBySortOrderAscIdAsc(session.getSubject().getId())
                         : Collections.emptyList();
 
-                String followUpText = followUpGenerator.generate(mainTurn.getQuestionText(), rubrics, thread);
+                String followUpText = followUpGenerator.generate(mainTurn.getQuestionText(), rubrics, thread,
+                        configService.getConfig(SystemConfig.SPEECH_LANGUAGE, "vi-VN"));
                 if (followUpText != null && !followUpText.trim().isEmpty()) {
                     InterviewTurn followUpTurn = InterviewTurn.builder()
                             .session(session)
