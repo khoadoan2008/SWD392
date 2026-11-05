@@ -23,6 +23,10 @@ import {
 
 const EMPTY_ANSWER_COMMENT = 'Sinh viên không trả lời (bỏ trống). Không có nội dung để đánh giá tiêu chí này.';
 const hasAnswerText = (turn) => typeof turn.transcript === 'string' && turn.transcript.trim().length > 0;
+const ANSWER_GRACE_SEC = 15;
+const isLateAnswer = (turn, session) => !hasAnswerText(turn) && turn.answeredAt != null
+  && turn.responseTimeSec != null && session.answerTimeLimitSec != null
+  && turn.responseTimeSec > session.answerTimeLimitSec + ANSWER_GRACE_SEC;
 const hasNoRecordedAnswers = (session) => session.status !== 'IN_PROGRESS'
   && (session.turns || []).length > 0 && !session.turns.some(hasAnswerText);
 
@@ -470,7 +474,9 @@ export default function SessionDetailPage() {
                         <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
                           {hasAnswerText(t) ? t.transcript : (
                             <span className="text-amber-300 font-semibold">
-                              {t.answeredAt
+                              {isLateAnswer(t, session)
+                                ? 'Nộp sau khi hết giờ, câu trả lời không được ghi nhận.'
+                                : t.answeredAt
                                 ? 'Sinh viên không trả lời (bỏ trống).'
                                 : isInProgress
                                   ? (t.askedAt ? 'Chưa nộp câu trả lời cho lượt hỏi này.' : 'Chưa đến lượt câu hỏi này.')

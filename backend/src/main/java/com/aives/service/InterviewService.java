@@ -292,8 +292,13 @@ public class InterviewService {
     }
 
     @Transactional(readOnly = true)
-    public InterviewSessionResponse getSessionDetail(Integer sessionId) {
-        return InterviewSessionResponse.of(getSessionById(sessionId));
+    public InterviewSessionResponse getSessionDetail(Integer sessionId, User currentUser) {
+        InterviewSession session = getSessionById(sessionId);
+        if (!currentUser.isAdmin() && session.getSubject() != null
+                && currentUser.getAssignedSubjects().stream().noneMatch(s -> s.getId().equals(session.getSubject().getId()))) {
+            throw new SecurityException("Không có quyền xem lượt thi của môn học này.");
+        }
+        return InterviewSessionResponse.of(session);
     }
 
     @Transactional(readOnly = true)

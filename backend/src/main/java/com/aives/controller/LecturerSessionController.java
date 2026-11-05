@@ -3,8 +3,10 @@ package com.aives.controller;
 import com.aives.dto.request.GradeSessionRequest;
 import com.aives.dto.response.ApiResponse;
 import com.aives.dto.response.InterviewSessionResponse;
+import com.aives.dto.response.SubjectResponse;
 import com.aives.security.UserPrincipal;
 import com.aives.service.InterviewService;
+import com.aives.service.SubjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import java.util.Map;
 public class LecturerSessionController {
 
     private final InterviewService interviewService;
+    private final SubjectService subjectService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<InterviewSessionResponse>>> searchSessions(
@@ -36,10 +39,20 @@ public class LecturerSessionController {
         return ResponseEntity.ok(ApiResponse.success(interviewService.countSessionStats(principal.getUser())));
     }
 
+    @GetMapping("/subjects")
+    public ResponseEntity<ApiResponse<List<SubjectResponse>>> getSessionSubjects(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        var user = principal.getUser();
+        return ResponseEntity.ok(ApiResponse.success(user.isAdmin()
+                ? subjectService.getAllSubjects()
+                : subjectService.getSubjectsByLecturer(user.getId())));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<InterviewSessionResponse>> getSessionDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Integer id) {
-        return ResponseEntity.ok(ApiResponse.success(interviewService.getSessionDetail(id)));
+        return ResponseEntity.ok(ApiResponse.success(interviewService.getSessionDetail(id, principal.getUser())));
     }
 
     @PostMapping("/{id}/grade")

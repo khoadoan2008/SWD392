@@ -3,6 +3,7 @@ import axiosClient from './axiosClient';
 export const sessionApi = {
   search: (params) => axiosClient.get('/lecturer/sessions', { params }),
   getStats: () => axiosClient.get('/lecturer/sessions/stats'),
+  getSubjects: () => axiosClient.get('/lecturer/sessions/subjects'),
   getDetail: (id) => axiosClient.get(`/lecturer/sessions/${id}`),
   delete: (id) => axiosClient.delete(`/lecturer/sessions/${id}`),
   grade: (id, data) => axiosClient.post(`/lecturer/sessions/${id}/grade`, data),

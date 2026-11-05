@@ -205,6 +205,22 @@ class Feature3InterviewTest extends FeatureTestBase {
         assertEquals(SessionStatus.ABORTED, sessions.findById(id).orElseThrow().getStatus());
         assertNull(turns.findById(turnId).orElseThrow().getTranscript());
     }
+    @Test void lecturerOfOtherSubjectCannotViewSessionDetail() throws Exception {
+        approvedQuestion(subject, "Câu 1");
+        int id = start(student);
+        mvc.perform(get("/api/lecturer/sessions/" + id).header("Authorization", bearer(lecturer))).andExpect(status().isOk());
+        mvc.perform(get("/api/lecturer/sessions/" + id).header("Authorization", bearer(otherLecturer))).andExpect(status().isForbidden());
+    }
+    @Test void sessionSubjectFilterIncludesInactiveAssignedSubjects() throws Exception {
+        subject.setActive(false); subjects.saveAndFlush(subject);
+        mvc.perform(get("/api/lecturer/sessions/subjects").header("Authorization", bearer(lecturer)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(1))
+            .andExpect(jsonPath("$.data[0].code").value("SWD392"));
+        mvc.perform(get("/api/lecturer/sessions/subjects").header("Authorization", bearer(admin)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(2));
+        mvc.perform(get("/api/lecturer/sessions/subjects").header("Authorization", bearer(student)))
+            .andExpect(status().isForbidden());
+    }
     @Test void homeShowsAssignedSubjectsAndHistory() throws Exception {
         approvedQuestion(subject, "Câu 1"); start(student);
         mvc.perform(get("/api/student/interviews/home").header("Authorization", bearer(student)))
