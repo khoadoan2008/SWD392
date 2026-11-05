@@ -48,7 +48,9 @@ public class AiGradingService {
             InterviewSessionRepository sessionRepository,
             InterviewTurnRepository turnRepository) {
         this(aiConfiguration,
-                new GeminiHttpTransport(aiConfiguration != null ? aiConfiguration.getModel() : "gemini-3.8-flash"),
+                aiConfiguration != null
+                        ? new GeminiHttpTransport(aiConfiguration.getModel(), aiConfiguration.getFallbackModel())
+                        : new GeminiHttpTransport(AiConfiguration.DEFAULT_MODEL),
                 rubricRepository,
                 sessionRubricScoreRepository,
                 sessionRepository,
@@ -116,7 +118,6 @@ public class AiGradingService {
             result = evaluateWithRuleBased(rubrics, turns, geminiError);
         }
 
-        // Clean previous rubric scores
         sessionRubricScoreRepository.deleteBySessionId(session.getId());
         sessionRubricScoreRepository.flush();
 
@@ -144,7 +145,7 @@ public class AiGradingService {
                     .session(session)
                     .rubric(r)
                     .aiScore(score)
-                    .finalScore(score) // Default lecturer draft to AI score for easy review
+                    .finalScore(score)
                     .comment(comment)
                     .build();
             savedScores.add(sessionRubricScoreRepository.save(srs));
@@ -374,11 +375,9 @@ public class AiGradingService {
                     matchRatio = (double) matched / totalKw;
                 }
             } else {
-                // If no keywords specified, base on answer presence and turn completion
                 matchRatio = totalTurns > 0 ? ((double) answeredCount / totalTurns) * 0.75 : 0.5;
             }
 
-            // Cap between 0.2 and 1.0 if answered, or 0 if nothing answered
             if (answeredCount == 0) {
                 matchRatio = 0.0;
             } else if (matchRatio < 0.2) {

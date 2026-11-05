@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-/** An in-memory URL connection; these tests make no network requests. */
 public class GeminiHttpTransportTest {
     @Test public void sendsKeyInHeaderOnlyToGoogleWithoutRedirects() throws Exception {
         FakeConnection connection=new FakeConnection(200,"{\"candidates\":[]}");
@@ -48,6 +47,44 @@ public class GeminiHttpTransportTest {
         FakeConnection connection=new FakeConnection(200,String.join("",java.util.Collections.nCopies(2*1024*1024+1,"x")));
         assertThrows(GenerationException.class,()->new GeminiHttpTransport(null,url->connection).post("{}","fake"));
         assertTrue(connection.disconnected);
+    }
+    @Test public void overloadedModelIsRetriedThenFallsBackToSecondModel() throws Exception {
+        java.util.List<String> paths = new java.util.ArrayList<>();
+        java.util.List<Long> waits = new java.util.ArrayList<>();
+        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash", url -> {
+            paths.add(url.getPath());
+            return url.getPath().contains("gemini-3.5-flash") ? fake(200, "{\"ok\":true}") : fake(503, "busy");
+        }, waits::add);
+        assertEquals("{\"ok\":true}", transport.post("{}", "fake"));
+        assertEquals(java.util.List.of(
+                "/v1beta/models/gemini-3.8-flash:generateContent",
+                "/v1beta/models/gemini-3.8-flash:generateContent",
+                "/v1beta/models/gemini-3.5-flash:generateContent"), paths);
+        assertEquals(java.util.List.of(GeminiHttpTransport.RETRY_DELAY_MS), waits);
+    }
+    @Test public void transientErrorRecoversOnRetryWithoutFallback() throws Exception {
+        int[] calls = {0};
+        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
+                url -> ++calls[0] == 1 ? fake(500, "x") : fake(200, "{}"), millis -> { });
+        assertEquals("{}", transport.post("{}", "fake"));
+        assertEquals(2, calls[0]);
+    }
+    @Test public void allModelsOverloadedGivesClearMessage() {
+        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
+                url -> fake(503, "busy"), millis -> { });
+        GenerationException error = assertThrows(GenerationException.class, () -> transport.post("{}", "fake"));
+        assertTrue(error.getMessage().contains("quá tải"));
+        assertFalse(error.getMessage().contains("busy"));
+    }
+    @Test public void clientErrorsAreNotRetried() {
+        int[] calls = {0};
+        GeminiHttpTransport transport = new GeminiHttpTransport("gemini-3.8-flash", "gemini-3.5-flash",
+                url -> { calls[0]++; return fake(429, "quota"); }, millis -> { });
+        assertThrows(GenerationException.class, () -> transport.post("{}", "fake"));
+        assertEquals(1, calls[0]);
+    }
+    private static FakeConnection fake(int status, String body) {
+        try { return new FakeConnection(status, body); } catch (Exception e) { throw new IllegalStateException(e); }
     }
     @Test public void rejectsModelPathInjectionBeforeOpeningConnection() {
         assertThrows(IllegalArgumentException.class,()->new GeminiHttpTransport("gemini-test/evil",url->{fail("Do not open");return null;}));

@@ -11,7 +11,7 @@ import java.util.List;
 public final class LlmQuestionGenerator implements MaterialQuestionGenerator {
     private final AiConfiguration configuration;
     private final AiTransport transport;
-    public LlmQuestionGenerator(AiConfiguration configuration) { this(configuration, new GeminiHttpTransport(configuration.getModel())); }
+    public LlmQuestionGenerator(AiConfiguration configuration) { this(configuration, new GeminiHttpTransport(configuration.getModel(), configuration.getFallbackModel())); }
     public LlmQuestionGenerator(AiConfiguration configuration, AiTransport transport) {
         this.configuration=configuration; this.transport=transport;
     }
