@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { sessionApi } from '../../api/sessionApi';
-import { subjectApi } from '../../api/subjectApi';
+import { questionApi } from '../../api/questionApi';
 import { 
   Clock, 
   ExternalLink, 
@@ -32,7 +32,7 @@ export default function SessionsPage() {
       const [resSessions, resStats, resSubjects] = await Promise.all([
         sessionApi.search(params),
         sessionApi.getStats(),
-        subjectApi.getAll()
+        questionApi.getGenerationSubjects()
       ]);
 
       if (resSessions.success) setSessions(resSessions.data);

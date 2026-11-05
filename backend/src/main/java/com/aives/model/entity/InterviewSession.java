@@ -56,7 +56,7 @@ public class InterviewSession {
     @Column(name = "ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 
-    /** GEMINI | RULE_BASED | NO_RUBRIC; null = AI chưa chấm xong. */
+    /** GEMINI | RULE_BASED | NO_RUBRIC | NO_ANSWER; null = AI chưa chấm xong. */
     @Column(name = "ai_grading_source", length = 20)
     private String aiGradingSource;
 

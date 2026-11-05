@@ -165,6 +165,40 @@ class AiGradingServiceTest {
     }
 
     @Test
+    void testBlankAnswersHaveExplicitZeroAssessmentWithoutCallingGemini() throws Exception {
+        turns.get(0).setTranscript(null);
+        turns.get(1).setTranscript("  \n\t");
+
+        InterviewSession evaluated = gradingService.evaluateSession(session);
+
+        assertEquals(new BigDecimal("0.00"), evaluated.getAiSuggestedScore());
+        assertEquals(AiGradingService.SOURCE_NO_ANSWER, evaluated.getAiGradingSource());
+        assertTrue(evaluated.getAiFeedback().contains("không trả lời (bỏ trống) cả 2/2"));
+        assertFalse(evaluated.getAiFeedback().contains("Gemini"));
+        verify(transport, never()).post(anyString(), anyString());
+        ArgumentCaptor<SessionRubricScore> saved = ArgumentCaptor.forClass(SessionRubricScore.class);
+        verify(sessionRubricScoreRepository, times(2)).save(saved.capture());
+        for (SessionRubricScore score : saved.getAllValues()) {
+            assertEquals(new BigDecimal("0.00"), score.getAiScore());
+            assertTrue(score.getComment().contains("Sinh viên không trả lời (bỏ trống)"));
+            assertFalse(score.getComment().contains("sơ sài"));
+        }
+    }
+
+    @Test
+    void testPartiallyAnsweredFallbackReportsContentCount() throws Exception {
+        turns.get(1).setTranscript(" ");
+        when(transport.post(anyString(), anyString())).thenThrow(new GenerationException("timeout"));
+
+        InterviewSession evaluated = gradingService.evaluateSession(session);
+
+        assertEquals(AiGradingService.SOURCE_RULE_BASED, evaluated.getAiGradingSource());
+        assertTrue(evaluated.getAiFeedback().contains("có nội dung trả lời ở 1/2 lượt hỏi"));
+        assertTrue(evaluated.getAiSuggestedScore().compareTo(BigDecimal.ZERO) > 0);
+        verify(transport, times(1)).post(anyString(), anyString());
+    }
+
+    @Test
     void testLockedSessionIsNotOverwrittenByAi() throws Exception {
         session.setFinalScore(new BigDecimal("6.00"));
         session.setAiSuggestedScore(new BigDecimal("9.00"));

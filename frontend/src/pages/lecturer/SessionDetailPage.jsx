@@ -21,6 +21,11 @@ import {
   Lock
 } from 'lucide-react';
 
+const EMPTY_ANSWER_COMMENT = 'Sinh viên không trả lời (bỏ trống). Không có nội dung để đánh giá tiêu chí này.';
+const hasAnswerText = (turn) => typeof turn.transcript === 'string' && turn.transcript.trim().length > 0;
+const hasNoRecordedAnswers = (session) => session.status !== 'IN_PROGRESS'
+  && (session.turns || []).length > 0 && !session.turns.some(hasAnswerText);
+
 export default function SessionDetailPage() {
   const { id } = useParams();
   const [session, setSession] = useState(null);
@@ -51,7 +56,7 @@ export default function SessionDetailPage() {
             s.rubricScores.forEach((rs) => {
               rMap[rs.rubricId] = {
                 finalScore: rs.finalScore != null ? rs.finalScore : (rs.aiScore != null ? rs.aiScore : ''),
-                comment: rs.comment || ''
+                comment: s.finalScore == null && hasNoRecordedAnswers(s) ? EMPTY_ANSWER_COMMENT : (rs.comment || '')
               };
             });
           }
@@ -131,15 +136,15 @@ export default function SessionDetailPage() {
     if (session.aiSuggestedScore != null) {
       setFinalScore(String(session.aiSuggestedScore));
     }
-    if (session.aiFeedback) {
-      setLecturerFeedback(session.aiFeedback);
+    if (displayAiFeedback) {
+      setLecturerFeedback(displayAiFeedback);
     }
     if (session.rubricScores && session.rubricScores.length > 0) {
       const newMap = {};
       session.rubricScores.forEach((rs) => {
         newMap[rs.rubricId] = {
           finalScore: rs.aiScore != null ? rs.aiScore : '',
-          comment: rs.comment || ''
+          comment: noRecordedAnswers ? EMPTY_ANSWER_COMMENT : (rs.comment || '')
         };
       });
       setRubricGrades(newMap);
@@ -204,6 +209,8 @@ export default function SessionDetailPage() {
         setSession(res.data);
         if (res.data.aiGradingSource === 'GEMINI') {
           setSaveSuccessMsg('AI Gemini đã hoàn tất đánh giá lại!');
+        } else if (hasNoRecordedAnswers(res.data)) {
+          setSaveSuccessMsg('Sinh viên không có nội dung trả lời. Không có cơ sở để đánh giá kiến thức theo rubric.');
         } else {
           setSaveErrorMsg('Gemini chưa phản hồi, hệ thống đã chấm tạm theo từ khoá rubric. Bạn có thể thử lại sau.');
         }
@@ -248,7 +255,18 @@ export default function SessionDetailPage() {
   const isInProgress = session.status === 'IN_PROGRESS';
   const aiPending = !isGraded && session.status === 'COMPLETED' && !session.aiGradingSource;
   const canGrade = !isGraded && !isInProgress;
-  const aiSourceBadge = {
+  const allTurns = session.turns || [];
+  const answeredTurnCount = allTurns.filter(hasAnswerText).length;
+  const blankSubmittedCount = allTurns.filter((turn) => !hasAnswerText(turn) && turn.answeredAt).length;
+  const unsubmittedCount = allTurns.length - answeredTurnCount - blankSubmittedCount;
+  const noRecordedAnswers = hasNoRecordedAnswers(session);
+  const displayAiFeedback = noRecordedAnswers
+    ? `Sinh viên không có nội dung trả lời ở cả ${allTurns.length}/${allTurns.length} lượt hỏi. Không có nội dung để đánh giá kiến thức theo rubric. Giảng viên xem từng câu hỏi và trạng thái trả lời ở trên.`
+    : session.aiFeedback;
+  const aiSourceBadge = noRecordedAnswers
+    ? { text: 'Không có câu trả lời để đánh giá', cls: 'bg-amber-500/10 text-amber-300 border-amber-500/30' }
+    : {
+    NO_ANSWER: { text: 'Không có câu trả lời để đánh giá', cls: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
     GEMINI: { text: 'Chấm bởi Gemini', cls: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' },
     RULE_BASED: { text: 'Chấm dự phòng theo từ khoá (Gemini chưa phản hồi)', cls: 'bg-amber-500/10 text-amber-300 border-amber-500/30' },
     NO_RUBRIC: { text: 'Môn chưa có rubric', cls: 'bg-slate-700/40 text-slate-300 border-slate-600' },
@@ -373,6 +391,106 @@ export default function SessionDetailPage() {
       )}
 
       {/* ========================================================================= */}
+      {/* KHỐI 3: TIẾN TRÌNH HỎI ĐÁP & VĂN BẢN GHI NHẬN (Q&A TRANSCRIPTS)           */}
+      {/* ========================================================================= */}
+      <section aria-labelledby="student-answers-heading" className="space-y-6">
+        <h2 id="student-answers-heading" className="text-base font-bold text-white flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-cyan-400" />
+          Câu hỏi &amp; câu trả lời của sinh viên
+        </h2>
+
+        <div role="status" className={`p-4 rounded-xl border text-sm space-y-1 ${
+          noRecordedAnswers ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : 'bg-slate-900 border-slate-800 text-slate-300'
+        }`}>
+          <p className="font-semibold">Có nội dung trả lời: {answeredTurnCount}/{allTurns.length} lượt hỏi · Bỏ trống khi nộp: {blankSubmittedCount}{unsubmittedCount > 0 ? ` · Chưa ghi nhận nộp: ${unsubmittedCount}` : ''}</p>
+          {noRecordedAnswers && <p>Sinh viên không có câu trả lời nào được ghi nhận. Xem trạng thái từng lượt hỏi bên dưới trước khi chấm điểm.</p>}
+        </div>
+
+        {Object.keys(groupedTurns).length === 0 ? (
+          <div className="p-8 text-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500">
+            Chưa có lượt hỏi đáp nào được ghi nhận.
+          </div>
+        ) : (
+          Object.keys(groupedTurns).map((mainIdx) => {
+            const turns = groupedTurns[mainIdx];
+            return (
+              <div key={mainIdx} className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+                <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex items-center justify-between">
+                  <span className="font-bold text-sm text-indigo-400 font-mono">
+                    CHỦ ĐỀ CÂU HỎI CHÍNH #{mainIdx}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {turns.length} lượt tương tác (Gồm câu chính và câu hỏi xoáy)
+                  </span>
+                </div>
+
+                <div className="p-6 space-y-6 divide-y divide-slate-800/60">
+                  {turns.map((t, idx) => (
+                    <div key={t.id} className={idx > 0 ? 'pt-6 space-y-4' : 'space-y-4'}>
+
+                      {/* Question Box */}
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          t.isFollowUp || t.turnType === 'FOLLOW_UP'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        }`}>
+                          {t.isFollowUp || t.turnType === 'FOLLOW_UP' ? (
+                            <BrainCircuit className="w-4 h-4" />
+                          ) : (
+                            <HelpCircle className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-400">
+                              {t.isFollowUp || t.turnType === 'FOLLOW_UP'
+                                ? `AI Hỏi xoáy (Follow-up #${t.followupIndex})`
+                                : `Câu hỏi chính #${t.mainIndex}`}
+                            </span>
+                            {t.responseTimeSec != null && (
+                              <span className="text-[11px] text-cyan-400 font-mono flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Thời gian trả lời: {t.responseTimeSec}s
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold text-white leading-relaxed">
+                            {t.questionText}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Student Answer Transcript Box */}
+                      <div className="ml-11 p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
+                          <User className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Câu trả lời của sinh viên:</span>
+                        </div>
+                        <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+                          {hasAnswerText(t) ? t.transcript : (
+                            <span className="text-amber-300 font-semibold">
+                              {t.answeredAt
+                                ? 'Sinh viên không trả lời (bỏ trống).'
+                                : isInProgress
+                                  ? (t.askedAt ? 'Chưa nộp câu trả lời cho lượt hỏi này.' : 'Chưa đến lượt câu hỏi này.')
+                                  : 'Không có câu trả lời được ghi nhận trước khi buổi thi kết thúc.'}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+
+      {/* ========================================================================= */}
       {/* KHỐI 1: GỢI Ý ĐÁNH GIÁ TỪ AI THEO RUBRIC (AI SUGGESTED ASSESSMENT)        */}
       {/* ========================================================================= */}
       <div className="rounded-2xl bg-slate-900 border border-indigo-950/60 shadow-xl overflow-hidden">
@@ -383,7 +501,7 @@ export default function SessionDetailPage() {
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                Gợi ý Đánh giá từ Trợ lý AI (Gemini / Heuristic Engine)
+                {noRecordedAnswers ? 'Đánh giá khi sinh viên không trả lời' : 'Gợi ý Đánh giá từ Trợ lý AI (Gemini / Heuristic Engine)'}
               </h2>
               <p className="text-xs text-slate-400">
                 Phân tích đối sánh câu trả lời của sinh viên với ma trận tiêu chí Rubric của môn học
@@ -398,7 +516,7 @@ export default function SessionDetailPage() {
 
           <div className="flex items-center gap-3">
             <div className="px-3.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-right">
-              <span className="text-[10px] text-indigo-300 uppercase font-semibold block">Điểm AI Đề xuất</span>
+              <span className="text-[10px] text-indigo-300 uppercase font-semibold block">{noRecordedAnswers ? 'Điểm gợi ý cho bài bỏ trống' : 'Điểm AI Đề xuất'}</span>
               <span className="text-lg font-bold text-indigo-300 font-mono">
                 {session.aiSuggestedScore != null ? `${session.aiSuggestedScore} / 10.0` : '—'}
               </span>
@@ -434,14 +552,14 @@ export default function SessionDetailPage() {
           )}
 
           {/* AI General Feedback */}
-          {session.aiFeedback && (
+          {displayAiFeedback && (
             <div className="p-4 rounded-xl bg-slate-950/70 border border-indigo-900/30 space-y-1.5">
               <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider">
                 <BrainCircuit className="w-3.5 h-3.5" />
-                Nhận xét tổng quan của AI:
+                {noRecordedAnswers ? 'Xác nhận từ biên bản:' : 'Nhận xét tổng quan của AI:'}
               </span>
               <p className="text-sm text-slate-200 leading-relaxed italic whitespace-pre-line">
-                "{session.aiFeedback}"
+                "{displayAiFeedback}"
               </p>
             </div>
           )}
@@ -489,9 +607,9 @@ export default function SessionDetailPage() {
                         />
                       </div>
 
-                      {rs.comment && (
+                      {(noRecordedAnswers || rs.comment) && (
                         <p className="text-xs text-slate-300 italic bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-                          "{rs.comment}"
+                          "{noRecordedAnswers ? EMPTY_ANSWER_COMMENT : rs.comment}"
                         </p>
                       )}
                     </div>
@@ -530,7 +648,7 @@ export default function SessionDetailPage() {
             title="Điền nhanh toàn bộ điểm và nhận xét của AI vào biểu mẫu"
           >
             <CopyCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Sử dụng gợi ý của AI (Quick Apply)</span>
+            <span>{noRecordedAnswers ? 'Điền điểm và nhận xét bỏ trống' : 'Sử dụng gợi ý của AI (Quick Apply)'}</span>
           </button>
           )}
         </div>
@@ -685,89 +803,6 @@ export default function SessionDetailPage() {
         </fieldset>
       </form>
 
-      {/* ========================================================================= */}
-      {/* KHỐI 3: TIẾN TRÌNH HỎI ĐÁP & VĂN BẢN GHI NHẬN (Q&A TRANSCRIPTS)           */}
-      {/* ========================================================================= */}
-      <div className="space-y-6">
-        <h2 className="text-base font-bold text-white flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-cyan-400" />
-          Tiến trình hỏi đáp &amp; Văn bản ghi nhận (Transcripts)
-        </h2>
-
-        {Object.keys(groupedTurns).length === 0 ? (
-          <div className="p-8 text-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500">
-            Chưa có lượt hỏi đáp nào được ghi nhận.
-          </div>
-        ) : (
-          Object.keys(groupedTurns).map((mainIdx) => {
-            const turns = groupedTurns[mainIdx];
-            return (
-              <div key={mainIdx} className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
-                <div className="bg-slate-950 px-6 py-3 border-b border-slate-800 flex items-center justify-between">
-                  <span className="font-bold text-sm text-indigo-400 font-mono">
-                    CHỦ ĐỀ CÂU HỎI CHÍNH #{mainIdx}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {turns.length} lượt tương tác (Gồm câu chính và câu hỏi xoáy)
-                  </span>
-                </div>
-
-                <div className="p-6 space-y-6 divide-y divide-slate-800/60">
-                  {turns.map((t, idx) => (
-                    <div key={t.id} className={idx > 0 ? 'pt-6 space-y-4' : 'space-y-4'}>
-                      
-                      {/* Question Box */}
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                          t.isFollowUp || t.turnType === 'FOLLOW_UP' 
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                        }`}>
-                          {t.isFollowUp || t.turnType === 'FOLLOW_UP' ? (
-                            <BrainCircuit className="w-4 h-4" />
-                          ) : (
-                            <HelpCircle className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-400">
-                              {t.isFollowUp || t.turnType === 'FOLLOW_UP'
-                                ? `AI Hỏi xoáy (Follow-up #${t.followupIndex})`
-                                : `Câu hỏi chính #${t.mainIndex}`}
-                            </span>
-                            {t.responseTimeSec != null && (
-                              <span className="text-[11px] text-cyan-400 font-mono flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                Thời gian trả lời: {t.responseTimeSec}s
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm font-semibold text-white leading-relaxed">
-                            {t.questionText}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Student Answer Transcript Box */}
-                      <div className="ml-11 p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
-                          <User className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Câu trả lời của sinh viên:</span>
-                        </div>
-                        <p className="text-sm text-slate-200 leading-relaxed italic">
-                          {t.transcript ? `"${t.transcript}"` : <span className="text-slate-600 not-italic">(Chưa có câu trả lời hoặc hết giờ)</span>}
-                        </p>
-                      </div>
-
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
 
     </div>
   );
