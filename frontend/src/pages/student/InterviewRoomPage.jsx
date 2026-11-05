@@ -42,6 +42,7 @@ export default function InterviewRoomPage() {
 
   // Speech Recognition State
   const [isListening, setIsListening] = useState(false);
+  const [voiceWarning, setVoiceWarning] = useState(false);
   const [voices, setVoices] = useState([]);
   const recognitionRef = useRef(null);
   const speechBaseRef = useRef('');
@@ -224,23 +225,51 @@ export default function InterviewRoomPage() {
   const speakText = (text) => {
     if (!text || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
     const targetLang = speechLang || 'vi-VN';
-    utterance.lang = targetLang;
-    utterance.rate = speechRate(targetLang);
 
-    const voice = pickVoice(voices.length ? voices : window.speechSynthesis.getVoices(), targetLang);
-    if (voice) {
-      utterance.voice = voice;
+    const executeSpeak = (candidateVoices) => {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = targetLang;
+      utterance.rate = speechRate(targetLang);
+
+      const voice = pickVoice(candidateVoices, targetLang);
+      if (voice) {
+        utterance.voice = voice;
+        setVoiceWarning(false);
+      } else if (targetLang.startsWith('vi')) {
+        console.warn('Trình duyệt hiện tại không có giọng đọc tiếng Việt.');
+        setVoiceWarning(true);
+        return;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (e) => {
+        console.warn('SpeechSynthesis error:', e);
+        setIsSpeaking(false);
+      };
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const currentVoices = (voices && voices.length > 0) ? voices : (window.speechSynthesis.getVoices() || []);
+    const directVoice = pickVoice(currentVoices, targetLang);
+
+    if (targetLang.startsWith('vi') && !directVoice) {
+      let resolved = false;
+      const onVoicesReady = () => {
+        if (resolved) return;
+        resolved = true;
+        const freshVoices = window.speechSynthesis.getVoices() || [];
+        if (freshVoices.length > 0) setVoices(freshVoices);
+        executeSpeak(freshVoices);
+      };
+      window.speechSynthesis.onvoiceschanged = onVoicesReady;
+      setTimeout(onVoicesReady, 350);
+      return;
     }
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = (e) => {
-      console.warn('SpeechSynthesis error:', e);
-      setIsSpeaking(false);
-    };
-    window.speechSynthesis.speak(utterance);
+    executeSpeak(currentVoices);
   };
 
   const handleSpeakQuestion = () => speakText(currentTurn?.questionText);
@@ -371,6 +400,21 @@ export default function InterviewRoomPage() {
           </div>
         )}
       </div>
+
+      {voiceWarning && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3 shadow-lg">
+          <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-sm text-amber-300">Trình duyệt hiện tại chưa hỗ trợ giọng đọc Tiếng Việt</p>
+            <p className="text-slate-300">
+              Trình duyệt của bạn (Brave) chặn các dịch vụ giọng đọc đám mây và máy tính chưa cài gói tiếng Việt offline, do đó hệ thống đã chủ động chặn giọng tiếng Anh để không đọc sai.
+            </p>
+            <p className="text-cyan-400 font-semibold pt-1">
+              👉 Hãy sao chép liên kết phòng thi này và mở trên <strong>Microsoft Edge</strong> để nghe đọc bằng giọng tiếng Việt chuẩn tự nhiên (Microsoft Hoài My)!
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Question Card */}
       {currentTurn ? (
